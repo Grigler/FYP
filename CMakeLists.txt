@@ -8,6 +8,7 @@ include_directories(
 add_executable(fyp
   src/clew/clew.c  
 
+  src/fyp/Context.cpp
 
   src/fyp/main.cpp
 )

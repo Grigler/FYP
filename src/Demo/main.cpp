@@ -50,9 +50,8 @@ int main()
 
   FYP::Context context;
   context.Create(CL_DEVICE_TYPE_ALL);
-  
+ 
   std::string test = FYP::Util::ReadFromFile("../kernel_code/test.txt");
-
   std::cout << test << std::endl;
 
   //Arbritrary key hold

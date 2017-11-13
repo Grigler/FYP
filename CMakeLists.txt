@@ -3,12 +3,41 @@ project(FYP)
 
 include_directories(
   $(PROJECT_SOURCE_DIR)/src
+  $(PROJECT_SOURCE_DIR)/include
 )
 
-add_executable(fyp
-  src/clew/clew.c  
+#----------------------------------------
+# Building clew as a shared library
+#----------------------------------------
+  add_definitions(-DBUILD_SHARED_LIBRARY)
 
-  src/fyp/Context.cpp
+  add_library(clew SHARED
+    src/clew/clew.c
+  )
+#----------------------------------------
 
-  src/fyp/main.cpp
-)
+
+#----------------------------------------
+# Building FYP as a static library and
+# linking to the clew shared library
+#----------------------------------------
+  add_library(FYP
+    src/fyp/Context.cpp
+  
+  )
+
+  target_link_libraries(FYP clew)
+#----------------------------------------
+
+
+#----------------------------------------
+# Building Demo as executable and linking
+# to the FYP static library
+#----------------------------------------
+  add_executable(Demo
+  
+    src/demo/main.cpp
+  )
+
+  target_link_libraries(Demo FYP)
+#----------------------------------------

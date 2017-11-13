@@ -3,7 +3,7 @@
 
 #include "clew/clew.h"
 
-namespace fyp
+namespace FYP
 {
   class Context
   {

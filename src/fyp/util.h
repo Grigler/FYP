@@ -5,9 +5,9 @@
 #include <sstream>
 #include <fstream>
 
-namespace fyp
+namespace FYP
 {
-namespace util
+namespace Util
 { 
 
   //Returns string containing txt from _path or NULL on failure

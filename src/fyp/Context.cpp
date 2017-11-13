@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-using namespace fyp;
+using namespace FYP;
 
 void Context::Create(cl_device_type _devices)
 {

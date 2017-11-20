@@ -41,3 +41,13 @@ include_directories(
 
   target_link_libraries(Demo FYP)
 #----------------------------------------
+
+#----------------------------------------
+# CPU implemenetation of simple RB-sys
+#----------------------------------------
+  add_executable(cpu
+    src/cpu/main.cpp
+	
+	src/cpu/RB.cpp
+  )
+#----------------------------------------

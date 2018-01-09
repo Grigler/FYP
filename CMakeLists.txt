@@ -22,8 +22,9 @@ include_directories(
 # linking to the clew shared library
 #----------------------------------------
   add_library(FYP
-    src/fyp/Context.cpp
-  
+    src/FYP/Context.cpp
+    src/FYP/Pipeline.cpp
+    src/FYP/Body.cpp
   )
 
   target_link_libraries(FYP clew)

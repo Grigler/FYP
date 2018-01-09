@@ -19,7 +19,7 @@ namespace FYP
     //CL_DEVICE_TYPE_ALL by default
     cl_device_id *GetFirstDevice(cl_device_type _ofType = CL_DEVICE_TYPE_ALL);
 
-  private:
+  //private:
     cl_int errCode;
 
     cl_platform_id platform;

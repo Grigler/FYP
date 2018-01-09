@@ -8,8 +8,9 @@ cl_context *Context::context = NULL;
 
 void Context::Create(cl_device_type _devices)
 {
+  clewInit();
   //Platform
-  cl_uint numPlatforms;
+  cl_uint numPlatforms = 0;
   clGetPlatformIDs(1, &platform, &numPlatforms);
   printf("> Platforms available: %i\n", numPlatforms);
 

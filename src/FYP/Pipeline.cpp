@@ -19,7 +19,8 @@ void Pipeline::Init()
   context->Create(CL_DEVICE_TYPE_ALL);
 
   //DEBUG
-  bodies.push_back(std::make_shared<Body>());
+  for(int i = 0; i < MAX_BODIES; i++)
+    bodies.push_back(std::make_shared<Body>());
 
   InitKernels();
 }
@@ -62,11 +63,16 @@ void Pipeline::InitKernels()
 
   cl_kernel kernel = clCreateKernel(program, "Adjust", &ret);
 
+  size_t local;
+  clGetKernelWorkGroupInfo(kernel, context->devices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
+
   while (true)
   {
     clSetKernelArg(kernel, 0, sizeof(bodiesIn), &bodiesIn);
-    ret = clEnqueueTask(context->commandQueue[0], kernel, 0, NULL, NULL);
-    clFlush(context->commandQueue[0]);
+    //ret = clEnqueueTask(context->commandQueue[0], kernel, 0, NULL, NULL);
+    clEnqueueNDRangeKernel(context->commandQueue[0], kernel, 1, NULL, (size_t*)&it, &local, NULL, NULL, NULL);
+    //clFinish(context->commandQueue[0]);
+    //clFlush(context->commandQueue[0]);
   }
 }
 

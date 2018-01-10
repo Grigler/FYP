@@ -20,8 +20,8 @@ namespace FYP
     float radius;
     glm::mat3 inertiaTensor;
 
-	glm::vec3 linearVel;
-	glm::vec3 angularVel;
+    glm::vec3 linearVel;
+    glm::vec3 angularVel;
 
     glm::vec3 bvMin, bvMax;
   };

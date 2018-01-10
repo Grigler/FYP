@@ -3,13 +3,57 @@ typedef struct
   float3 pos;
   float4 orientation;
   float mass;
+  
+  float3 linearVel;
+  float3 angularVel;
 } Body;
 
-__kernel void Adjust(__global Body *input)
+__kernel void Adjust(__global Body *input, float dt)
 {
   int gid = get_global_id(0);
   
-  input[gid].pos = (float3)(gid);
-  input[gid].orientation = (float4)(gid);
-  input[gid].mass = gid;
+  input[gid].linearVel += (float3)(0.0f, -9.81f, 0.0f)*dt;
+  input[gid].pos += input[gid].linearVel * dt;
+  
+}
+
+typedef struct
+{
+  float3 min;
+  float3 max;
+} BV;
+
+typedef struct
+{
+  int leftID;
+  int rightID;  
+} BVPair;
+//This could be better done by batching each bv-pair check into a thread
+
+__kernel void BroadPhase(__global BV *input, __global BVPair *output, float inputNum)
+{
+  int gid = get_global_id(0);
+  __private BV thisBV = input[gid];
+  __private BV againstBV;
+  
+  for(int i = gid+1; i < inputNum; i++)
+  {
+    againstBV = input[i];
+    
+    //AABB check for thisBV and againstBV
+    bool xResult;
+    bool yResult;
+    bool zResult;
+    
+     if(xResult & yResult & zResult)
+    {
+      __private BVPair pair;
+      pair.leftID = gid;
+      pair.rightID = i;
+      //TODO - Push into output
+    }
+  }
+  
+
+  
 }

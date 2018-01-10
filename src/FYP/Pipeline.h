@@ -29,11 +29,17 @@ namespace FYP
     static void InitKernels();
 
     static void BroadPhase();
-    static void NarrowPhase();
+    
+
+	static void NarrowPhase();
+
     static void ConstraintSolving();
+
     static void Integrate();
+	static cl_kernel integrationKernal;
 
     static std::list< std::shared_ptr<Body> > bodies;
+	static cl_mem bodies;
 
 
   };

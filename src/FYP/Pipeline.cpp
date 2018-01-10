@@ -59,21 +59,24 @@ void Pipeline::InitKernels()
 
   cl_program program = clCreateProgramWithSource(*context->GetId(), 1,
     srcArr, sizeArr, &ret);
+  
+  printf("> Kernel Building...\n");
   ret = clBuildProgram(program, 1, &context->devices[0], NULL, NULL, NULL);
+  printf("> Kernel Built\n");
 
-  cl_kernel kernel = clCreateKernel(program, "Adjust", &ret);
+  integrationKernal = clCreateKernel(program, "Adjust", &ret);
 
-  size_t local;
-  clGetKernelWorkGroupInfo(kernel, context->devices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
-
+  /*
   while (true)
   {
     clSetKernelArg(kernel, 0, sizeof(bodiesIn), &bodiesIn);
-    //ret = clEnqueueTask(context->commandQueue[0], kernel, 0, NULL, NULL);
-    clEnqueueNDRangeKernel(context->commandQueue[0], kernel, 1, NULL, (size_t*)&it, &local, NULL, NULL, NULL);
-    //clFinish(context->commandQueue[0]);
+    
+	clEnqueueNDRangeKernel(context->commandQueue[0], kernel, 1, NULL, (size_t*)&it, NULL, NULL, NULL, NULL);
+	
+    clFinish(context->commandQueue[0]);
     //clFlush(context->commandQueue[0]);
   }
+  */
 }
 
 void Pipeline::Update(float _dt)

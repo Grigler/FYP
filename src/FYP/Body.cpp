@@ -11,6 +11,9 @@ Body::Body()
   radius = 1.0f;
   inertiaTensor = GenSphereInertiaTensor();
 
+  linearVel = glm::vec3(0);
+  angularVel = glm::vec3(0);
+
   bvMin = glm::vec3(0);
   bvMax = glm::vec3(0);
 }

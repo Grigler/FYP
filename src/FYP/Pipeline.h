@@ -37,10 +37,24 @@ namespace FYP
 
     static void BroadPhase();
     static cl_kernel broadPhaseKernel;
+    static cl_mem bvMem;
+    struct AABBStruct
+    {
+      glm::vec3 min;
+      glm::vec3 max;
+    };
+    static cl_mem bvPairs;
+    struct BVPair
+    {
+      int leftID;
+      int rightID;
+    };
+
 
     static void NarrowPhase();
 
     static void ConstraintSolving();
+    static cl_kernel constraintSolverKernel;
 
     static void Integrate();
     static cl_kernel integrationKernel;

@@ -28,9 +28,9 @@ typedef struct
   int leftID;
   int rightID;  
 } BVPair;
-//This could be better done by batching each bv-pair check into a thread
 
-__kernel void BroadPhase(__global BV *input, __global BVPair *output, float inputNum)
+//This could be better done by batching each bv-pair check into a thread
+__kernel void BroadPhase(__global BV *input, __global BVPair *output, int inputNum)
 {
   int gid = get_global_id(0);
   __private BV thisBV = input[gid];
@@ -41,19 +41,24 @@ __kernel void BroadPhase(__global BV *input, __global BVPair *output, float inpu
     againstBV = input[i];
     
     //AABB check for thisBV and againstBV
-    bool xResult;
-    bool yResult;
-    bool zResult;
+    bool xResult = thisBV.max.x <= againstBV.min.x || thisBV.min.x >= againstBV.max.x;
+    bool yResult = thisBV.max.y <= againstBV.min.y || thisBV.min.y >= againstBV.max.y;
+    bool zResult = thisBV.max.z <= againstBV.min.z || thisBV.min.z >= againstBV.max.z;
     
-     if(xResult & yResult & zResult)
+    //bool xResult = true;
+    //bool yResult = true;
+    //bool zResult = true;
+    
+    if(xResult & yResult & zResult)
     {
-      __private BVPair pair;
-      pair.leftID = gid;
-      pair.rightID = i;
-      //TODO - Push into output
+      output[gid+i].leftID = gid;
+      output[gid+i].rightID = i;
     }
   }
-  
-
-  
 }
+  __kernel void ConstraintSolver(__global float *placeHolder)
+  {
+    int gid = get_global_id(0);
+    placeHolder[gid] = 2.0f;
+    return;
+  }

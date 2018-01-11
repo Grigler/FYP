@@ -9,7 +9,12 @@
 
 using namespace FYP;
 
-cl_kernel Pipeline::integrationKernal;
+cl_kernel Pipeline::integrationKernel;
+cl_kernel Pipeline::constraintSolverKernel;
+cl_kernel Pipeline::broadPhaseKernel;
+
+cl_mem Pipeline::bvMem;
+cl_mem Pipeline::bvPairs;
 
 std::list< std::shared_ptr<Body> > Pipeline::bodies;
 cl_mem Pipeline::bodiesMem;
@@ -41,13 +46,24 @@ void Pipeline::InitKernels()
   cl_program program = clCreateProgramWithSource(*context->GetId(), 1,
     srcArr, sizeArr, &ret);
   
-  printf("> Program Building...\n");
+  printf("\n> Program Building...\n");
   ret = clBuildProgram(program, 1, &context->devices[0], NULL, NULL, NULL);
-  printf("> Program Built\n");
+  printf("> Program Built\n\n");
 
   printf("> Creating Integration Kernel\n");
-  integrationKernal = clCreateKernel(program, "Adjust", &ret);
-  printf("> Created Integration Kenrel\n");
+  integrationKernel = clCreateKernel(program, "Adjust", &ret);
+  printf("> Created  Integration Kenrel\n\n");
+
+  printf("> Creating Broadphase Kernel\n");
+  broadPhaseKernel = clCreateKernel(program, "BroadPhase", &ret);
+  printf("\t> Creating Buffers\n");
+  bvMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(AABBStruct)*MAX_BODIES, NULL, &ret);
+  bvPairs = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(BVPair)*MAX_BODIES*MAX_BODIES, NULL, &ret);
+  printf("> Created  Broadphase Kernel\n\n");
+
+  printf("> Creating Constraint Solver Kernel\n");
+  constraintSolverKernel = clCreateKernel(program, "ConstraintSolver", &ret);
+  printf("> Created  Constraint Solver Kernel\n\n");
 }
 
 void Pipeline::BufferBodies()
@@ -86,12 +102,8 @@ void Pipeline::Update(float _dt)
 void Pipeline::BroadPhase()
 {
   //AABB broadphase giving a list of bodies to pass into narrowphase
-  struct AABB
-  {
-    glm::vec3 min;
-    glm::vec3 max;
-  };
-  static AABB bv[MAX_BODIES];
+  
+  static AABBStruct bv[MAX_BODIES];
 
   int it = 0;
   for (auto i = bodies.begin(); i != bodies.end(); i++)
@@ -104,7 +116,21 @@ void Pipeline::BroadPhase()
     it++;
   }
 
+  //Writing BV data to buffer with blocking write
+  clEnqueueWriteBuffer(context->commandQueue[0], bvMem, CL_TRUE,
+    0, sizeof(AABBStruct)*it, bv, NULL, NULL, NULL);
+  //Setting full list of BVs as input
+  clSetKernelArg(broadPhaseKernel, 0, sizeof(bvMem), &bvMem);
 
+  //Output pairs
+  clSetKernelArg(broadPhaseKernel, 1, sizeof(bvPairs), &bvPairs);
+
+  //Setting number of bvs
+  clSetKernelArg(broadPhaseKernel, 2, sizeof(int), &it);
+
+  clEnqueueNDRangeKernel(context->commandQueue[0], broadPhaseKernel, 1,
+    NULL, (size_t*)&it, NULL, NULL, NULL, NULL);
+  clFinish(context->commandQueue[0]);
 }
 
 void Pipeline::NarrowPhase()
@@ -121,13 +147,15 @@ void Pipeline::Integrate()
 {
   BufferBodies();
 
-  clSetKernelArg(integrationKernal, 0, sizeof(bodiesMem), &bodiesMem);
+  clSetKernelArg(integrationKernel, 0, sizeof(bodiesMem), &bodiesMem);
 
-  clSetKernelArg(integrationKernal, 1, sizeof(float), &dt);
+  clSetKernelArg(integrationKernel, 1, sizeof(float), &dt);
 
-  clEnqueueNDRangeKernel(context->commandQueue[0], integrationKernal, 1, NULL, 
+  clEnqueueNDRangeKernel(context->commandQueue[0], integrationKernel, 1, NULL,
     &bodiesMemSize, NULL, NULL, NULL, NULL);
 
+  //Would be needed so that nothing is read back into the host code before
+  //that kernel is done running
   clFinish(context->commandQueue[0]);
 
 

@@ -14,8 +14,19 @@ Body::Body()
   linearVel = glm::vec3(0);
   angularVel = glm::vec3(0);
 
-  bvMin = glm::vec3(-2);
-  bvMax = glm::vec3(2);
+  if (true)
+  {
+    int r = rand() % 1000 - 500;
+    bvMax = glm::vec3(r);
+    bvMin = glm::vec3(r - 4);
+  }
+  else
+  {
+    bvMin = glm::vec3(-2);
+    bvMax = glm::vec3(2);
+  }
+
+  
 }
 
 glm::mat3 Body::GenSphereInertiaTensor()

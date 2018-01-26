@@ -6,6 +6,7 @@
 #include "Body.h"
 
 #include <iostream>
+#include <vector>
 
 using namespace FYP;
 
@@ -91,7 +92,6 @@ void Pipeline::Update(float _dt)
   if (dt >= FIXED_TIME)
   {
     BroadPhase();
-    NarrowPhase();
     ConstraintSolving();
     Integrate();
 
@@ -112,6 +112,7 @@ void Pipeline::BroadPhase()
 
     bv[it].min = b->bvMin;
     bv[it].max = b->bvMax;
+    bv[it].indx = it;
 
     it++;
   }
@@ -130,12 +131,76 @@ void Pipeline::BroadPhase()
 
   clEnqueueNDRangeKernel(context->commandQueue[0], broadPhaseKernel, 1,
     NULL, (size_t*)&it, NULL, NULL, NULL, NULL);
+  //Blocking wait
   clFinish(context->commandQueue[0]);
+
+  static BVPair pairData[MAX_BODIES*MAX_BODIES];
+
+  //Reading collision passes
+  clEnqueueReadBuffer(context->commandQueue[0], bvPairs, CL_TRUE,
+    0, sizeof(BVPair)*it*it, pairData, NULL, NULL, NULL);
+
+
+
+  NarrowPhase();
 }
 
+/*
+void Pipeline::BroadPhase()
+{
+  
+
+  //TODO replace with array
+  std::vector<BroadTestPair> pairs;
+
+  int indx = 0;
+  //Create array of BroadTestPair
+  for (auto i = bodies.begin(); i != bodies.end(); i++)
+  {
+    for (auto j = i; j != bodies.end(); j++)
+    {
+      BroadTestPair thisPair;
+      thisPair.minL = (*i)->bvMin;
+      thisPair.maxL = (*i)->bvMax;
+
+      thisPair.minR = (*j)->bvMin;
+      thisPair.maxR = (*j)->bvMax;
+
+      thisPair.indx = indx;
+      indx++;
+
+      //TODO replace with array
+      pairs.push_back(thisPair);
+    }
+
+  }
+
+  std::vector<int> outputIDs;
+  outputIDs.reserve(pairs.size());
+
+  //Buffer data - blocking write
+  clEnqueueWriteBuffer(context->commandQueue[0], bvMem, CL_TRUE,
+    0, sizeof(BroadTestPair)*indx, &pairs[0], NULL, NULL, NULL);
+
+  //Setting kernel args
+  clSetKernelArg(broadPhaseKernel, 0, sizeof(bvMem), &bvMem);
+  clSetKernelArg(broadPhaseKernel, 1, sizeof(bvPairs), &bvPairs);
+
+  //run kernel
+  clEnqueueNDRangeKernel(context->commandQueue[0], broadPhaseKernel, 1,
+    NULL, (size_t*)&indx, NULL, NULL, NULL, NULL);
+
+  //Read back colliding pairs
+
+
+  //Send data to narrowphase
+
+}
+*/
 void Pipeline::NarrowPhase()
 {
-
+  //Reading pair data from broadphase
+  
 }
 
 void Pipeline::ConstraintSolving()

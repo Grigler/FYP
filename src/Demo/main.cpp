@@ -23,9 +23,9 @@ int main()
 
   while (isRunning)
   {
-    FYP::Pipeline::Update(1);
+    FYP::Pipeline::Update(8);
 
-    _sleep(1);
+    _sleep(8);
   }
 
   //Arbritrary key hold

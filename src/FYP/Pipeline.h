@@ -42,14 +42,27 @@ namespace FYP
     {
       glm::vec3 min;
       glm::vec3 max;
+      int indx;
     };
+    /*
+    struct BroadTestPair
+    {
+      //AABB min-max bounds for left and right
+      glm::vec3 minL, maxL;
+      glm::vec3 minR, maxR;
+
+      //Indx - used to refer back to bodies in host code
+      int indx;
+    };
+    */
     static cl_mem bvPairs;
+    
     struct BVPair
     {
       int leftID;
       int rightID;
     };
-
+    
 
     static void NarrowPhase();
 

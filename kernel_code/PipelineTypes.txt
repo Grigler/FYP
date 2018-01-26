@@ -1,0 +1,87 @@
+//TODO - Implement
+typedef 
+{
+  float x, y, z, w;
+} Quat;
+typedef struct
+{
+  //TODO
+} Mat3;
+
+typedef struct
+{
+  float3 origMin;
+  float3 origMax;
+  
+  float3 min;
+  float3 max;
+} AABB;
+
+typedef struct 
+{
+  float3 pos;
+  Quat rot;
+  
+  Mat3 invInertiaTensor;
+  
+  float mass;
+  
+  float3 linearVel;
+  float3 angularVel;
+  
+  float linearDrag;
+  float angularDrag;
+  
+  AABB bv;
+  
+  //TODO - Complex collider type
+  
+  float3 accumForce;
+  float3 accumTorque;
+  
+} Body;
+
+
+__kernel void Integrate(__global Body *bodies, __global float *dt)
+{
+  int gid = get_global_id(0);
+  
+  __private Body b = bodies[gid];
+  
+  //Linear Vel  
+  //TODO - handle 0/infinite mass
+  float3 linearAccel = b.accumForce / b.mass;
+  //Gravity
+  linearAccel += float3(0.0f, -9.81f*b.mass, 0.0f);
+  b.linearVel += linearAccel * (*dt);
+  
+  //Angular - TODO
+  //angularVel += invInertiaTensor * torque * dt
+
+  //Simplified drag applications - estimation, not strictly accurate
+  linearVel *= (1.0f - (*dt) * b.linearDrag);
+  angularVel *= (1.0f - (*dt) * b.linearDrag);
+  
+  //Applying velocities to adjust position and orientation
+  b.pos += linearVel * (*dt); //TODO - if integration is done first, should update BV
+  //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
+  
+  //Resetting accumulators
+  b.accumForce = float3(0.0f);
+  b.accumTorque = float3(0.0f);
+}
+
+__kernel void BroadPhase(__global Body *bodies, )
+{
+  
+}
+
+__kernel void NarrowPhase()
+{
+  
+}
+
+__kernel void ConstraintSolver()
+{
+  
+}

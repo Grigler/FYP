@@ -15,6 +15,8 @@ typedef struct
   
   float3 min;
   float3 max;
+  
+  int bodyID;
 } AABB;
 
 typedef struct 
@@ -40,7 +42,6 @@ typedef struct
   float3 accumTorque;
   
 } Body;
-
 
 __kernel void Integrate(__global Body *bodies, __global float *dt)
 {
@@ -71,14 +72,64 @@ __kernel void Integrate(__global Body *bodies, __global float *dt)
   b.accumTorque = float3(0.0f);
 }
 
-__kernel void BroadPhase(__global Body *bodies, )
+typedef struct
 {
+  int leftIndx;
+  int rightIndx;
+} IDPair;
+
+__kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *pairs, volatile __global int lastPairIndx)
+{
+  int gid = get_global_id(0);
   
+  AABB thisBV = bodies[gid];
+  
+  IDPair foundPairs[numBodies];
+  int numFound = 0;
+  
+  for(int i = gid + 1; i < numBodies; i++)
+  {
+    AABB againstBV = bodies[i];
+  
+    bool xResult = thisBV.max.x <= againstBV.min.x || thisBV.min.x >= againstBV.max.x;
+    bool yResult = thisBV.max.y <= againstBV.min.y || thisBV.min.y >= againstBV.max.y;
+    bool zResult = thisBV.max.z <= againstBV.min.z || thisBV.min.z >= againstBV.max.z;
+    
+    bool testResult = xResult & yResult & zResult;
+    
+    if(testResult)
+    {
+      IDPair newPair;
+      newPair.leftIndx = gid;
+      newPair.rightIndx = i;
+      //TODO put this pair somewhere - BUT WHERE?
+      pairs[numFound] = newPair;
+      numFound++;
+    }
+  }
+  
+  //Interpreting pairs for narrow phase collision
+  int limit = lastPairIndx + numFound;
+  int indx = 0;
+  //Incrementing indx in a thread-safe way to avoid thread-collisions
+  atomic_add(lastPairIndx, numFound);
+  for(int i = lastPairIndx; i < limit; i++)
+  {
+    pairs[i] = foundPairs[indx];
+    indx++;
+  }
 }
 
-__kernel void NarrowPhase()
+__kernel void NarrowPhase(__global IDPair *pairs __global Body *bodies)
 {
+  int gid = get_global_id(0);
   
+  Body leftBody = bodies[pair[gid].leftIndx];
+  Body rightBody = bodies[pair[gid].rightIndx];
+  
+  //TODO
+  //Find what type of colliders each body has
+  //then send to correct function
 }
 
 __kernel void ConstraintSolver()

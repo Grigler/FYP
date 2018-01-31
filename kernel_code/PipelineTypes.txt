@@ -1,12 +1,111 @@
 //TODO - Implement
-typedef 
+typedef struct
 {
   float x, y, z, w;
 } Quat;
 typedef struct
 {
   //TODO
+  float x1,x2,x3;
+  float y1,y2,y3;
+  float z1,z2,z3;
 } Mat3;
+
+typedef struct 
+{
+  float3 pos;
+  float x,y,z,w;
+  
+  //Mat3 invInertiaTensor;
+  float x1,x2,x3;
+  float y1,y2,y3;
+  float z1,z2,z3;
+  
+  float mass;
+  
+  float3 linearVel;
+  float3 angularVel;
+  
+  float linearDrag;
+  float angularDrag;
+  
+  //AABB bv;
+  float3 bvOrigMin;
+  float3 bvOrigMax;
+  float3 bvMin;
+  float3 bvMax;
+  //int bodyID;
+  
+  //TODO - Complex collider type instead of sphere
+  float sphereRadius;
+  
+  float3 accumForce;
+  float3 accumTorque;
+  
+} Body;
+
+__kernel void Integrate(__global Body *bodies, float dt)
+{
+  int gid = get_global_id(0);
+  
+  //Linear Vel  
+  //TODO - handle 0/infinite mass
+  float mass = max(bodies[gid].mass, 0.5f);
+  float3 linearAccel = bodies[gid].accumForce / mass;
+  //Gravity
+  linearAccel += (float3)(0.0f, -9.81f, 0.0f);
+  bodies[gid].linearVel += linearAccel * (dt);
+  
+  //Angular - TODO
+  //angularVel += invInertiaTensor * torque * dt
+
+  //Simplified drag applications - estimation, not strictly accurate
+  bodies[gid].linearVel *= (1.0f - (dt) * bodies[gid].linearDrag);
+  bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
+  
+  //Applying velocities to adjust position and orientation
+  bodies[gid].pos += bodies[gid].linearVel * (dt); //TODO - if integration is done first, should update BV
+  //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
+  
+  //Resetting accumulators
+  bodies[gid].accumForce = (float3)(0.0f);
+  bodies[gid].accumTorque = (float3)(0.0f);
+  
+  //DEBUG - used for testing struct packing / padding
+  /*
+  bodies[gid].pos = (float3)(-1.0f);
+  bodies[gid].x = 1.0f;
+  bodies[gid].y = 1.0f;
+  bodies[gid].z = 1.0f;
+  bodies[gid].w = 1.0f;
+  bodies[gid].x1 = 2.0f;
+  bodies[gid].x2 = 2.0f;
+  bodies[gid].x3 = 2.0f;
+  bodies[gid].y1 = 2.0f;
+  bodies[gid].y2 = 2.0f;
+  bodies[gid].y3 = 2.0f;
+  bodies[gid].z1 = 2.0f;
+  bodies[gid].z2 = 2.0f;
+  bodies[gid].z3 = 2.0f;
+  bodies[gid].mass = 3.0f;
+  bodies[gid].linearVel = (float3)(4.0f);
+  bodies[gid].angularVel = (float3)(5.0f);
+  bodies[gid].bvOrigMin = (float3)(6.0f);
+  bodies[gid].bvOrigMax = (float3)(7.0f);
+  bodies[gid].bvMin = (float3)(8.0f);
+  bodies[gid].bvMax = (float3)(9.0f);
+  bodies[gid].accumForce = (float3)(10.0f);
+  bodies[gid].accumTorque = (float3)(11.0f);
+  */
+}
+
+typedef struct
+{
+  int leftIndx;
+  int rightIndx;
+} IDPair;
+
+#define MAX_BODIES 2048
 
 typedef struct
 {
@@ -19,81 +118,31 @@ typedef struct
   int bodyID;
 } AABB;
 
-typedef struct 
+AABB GetBVFrom(Body b)
 {
-  float3 pos;
-  Quat rot;
-  
-  Mat3 invInertiaTensor;
-  
-  float mass;
-  
-  float3 linearVel;
-  float3 angularVel;
-  
-  float linearDrag;
-  float angularDrag;
-  
-  AABB bv;
-  
-  //TODO - Complex collider type
-  
-  float3 accumForce;
-  float3 accumTorque;
-  
-} Body;
-
-__kernel void Integrate(__global Body *bodies, __global float *dt)
-{
-  int gid = get_global_id(0);
-  
-  __private Body b = bodies[gid];
-  
-  //Linear Vel  
-  //TODO - handle 0/infinite mass
-  float3 linearAccel = b.accumForce / b.mass;
-  //Gravity
-  linearAccel += float3(0.0f, -9.81f*b.mass, 0.0f);
-  b.linearVel += linearAccel * (*dt);
-  
-  //Angular - TODO
-  //angularVel += invInertiaTensor * torque * dt
-
-  //Simplified drag applications - estimation, not strictly accurate
-  linearVel *= (1.0f - (*dt) * b.linearDrag);
-  angularVel *= (1.0f - (*dt) * b.linearDrag);
-  
-  //Applying velocities to adjust position and orientation
-  b.pos += linearVel * (*dt); //TODO - if integration is done first, should update BV
-  //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
-  
-  //Resetting accumulators
-  b.accumForce = float3(0.0f);
-  b.accumTorque = float3(0.0f);
+  AABB ret;
+  ret.origMin = b.bvOrigMin;
+  ret.origMax = b.bvOrigMax;
+  ret.min = b.bvMin;
+  ret.max = b.bvMax;
+  return ret;
 }
 
-typedef struct
-{
-  int leftIndx;
-  int rightIndx;
-} IDPair;
-
-__kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *pairs, volatile __global int lastPairIndx)
+__kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *pairs, volatile __global int *lastPairIndx, volatile __global int *pairsFound)
 {
   int gid = get_global_id(0);
   
-  AABB thisBV = bodies[gid];
-  
-  IDPair foundPairs[numBodies];
+  AABB thisBV = GetBVFrom(bodies[gid]);
+
   int numFound = 0;
   
   for(int i = gid + 1; i < numBodies; i++)
   {
-    AABB againstBV = bodies[i];
+    AABB againstBV = GetBVFrom(bodies[i]);
   
-    bool xResult = thisBV.max.x <= againstBV.min.x || thisBV.min.x >= againstBV.max.x;
-    bool yResult = thisBV.max.y <= againstBV.min.y || thisBV.min.y >= againstBV.max.y;
-    bool zResult = thisBV.max.z <= againstBV.min.z || thisBV.min.z >= againstBV.max.z;
+    bool xResult = thisBV.max.x >= againstBV.min.x || thisBV.min.x <= againstBV.max.x;
+    bool yResult = thisBV.max.y >= againstBV.min.y || thisBV.min.y <= againstBV.max.y;
+    bool zResult = thisBV.max.z >= againstBV.min.z || thisBV.min.z <= againstBV.max.z;
     
     bool testResult = xResult & yResult & zResult;
     
@@ -102,30 +151,42 @@ __kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *
       IDPair newPair;
       newPair.leftIndx = gid;
       newPair.rightIndx = i;
-      //TODO put this pair somewhere - BUT WHERE?
-      pairs[numFound] = newPair;
+      
+      int indx = atomic_inc(lastPairIndx);
+      pairs[indx] = newPair;
+      
       numFound++;
     }
   }
-  
-  //Interpreting pairs for narrow phase collision
-  int limit = lastPairIndx + numFound;
-  int indx = 0;
-  //Incrementing indx in a thread-safe way to avoid thread-collisions
-  atomic_add(lastPairIndx, numFound);
-  for(int i = lastPairIndx; i < limit; i++)
-  {
-    pairs[i] = foundPairs[indx];
-    indx++;
-  }
+
+  //Adding number found to total - for easy workload assignment for narrowphase
+  atomic_add(pairsFound, numFound);
 }
 
-__kernel void NarrowPhase(__global IDPair *pairs __global Body *bodies)
+bool SphereSphere(Body l, Body r)
+{
+  float radSum = l.sphereRadius + r.sphereRadius;
+  float dist = distance(l.pos, r.pos);
+  return dist < radSum;
+}
+
+__kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies)
 {
   int gid = get_global_id(0);
   
-  Body leftBody = bodies[pair[gid].leftIndx];
-  Body rightBody = bodies[pair[gid].rightIndx];
+  Body leftBody = bodies[pairs[gid].leftIndx];
+  Body rightBody = bodies[pairs[gid].rightIndx];
+  
+  //Assuming spheres for simplest collision atm
+  
+  //
+  float radSum = leftBody.sphereRadius + rightBody.sphereRadius;
+  float dist = distance(leftBody.pos, rightBody.pos);
+  
+  if(distance < radSum)
+  {
+    
+  }
   
   //TODO
   //Find what type of colliders each body has

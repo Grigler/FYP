@@ -23,8 +23,8 @@ int main()
 
   while (isRunning)
   {
-    FYP::Pipeline::Update(8);
-
+    FYP::Pipeline::Update(0.008f);
+    printf("Post-Update print\n");
     _sleep(8);
   }
 

@@ -1,7 +1,7 @@
 #ifndef __FYP_PIPELINE__
 #define __FYP_PIPELINE__
 
-#include <list>
+#include <vector>
 #include <memory>
 
 #include <clew/clew.h>
@@ -9,14 +9,17 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include "BodyStruct.h"
+
 namespace FYP
 {
   //Arbitrary value, should be from hardware limits
 #define MAX_BODIES 2048
-#define FIXED_TIME 0.08f
+#define FIXED_TIME 0.008f
 
   class Context;
-  class Body;
+  //class Body;
+  //struct Body;
 
   class Pipeline
   {
@@ -37,34 +40,17 @@ namespace FYP
 
     static void BroadPhase();
     static cl_kernel broadPhaseKernel;
-    static cl_mem bvMem;
-    struct AABBStruct
+    static cl_mem idPairsMem;
+    static cl_mem pairIndxMem;
+    static cl_mem pairsFoundMem;
+    struct idPairs
     {
-      glm::vec3 min;
-      glm::vec3 max;
-      int indx;
+      cl_int left;
+      cl_int right;
     };
-    /*
-    struct BroadTestPair
-    {
-      //AABB min-max bounds for left and right
-      glm::vec3 minL, maxL;
-      glm::vec3 minR, maxR;
-
-      //Indx - used to refer back to bodies in host code
-      int indx;
-    };
-    */
-    static cl_mem bvPairs;
-    
-    struct BVPair
-    {
-      int leftID;
-      int rightID;
-    };
-    
 
     static void NarrowPhase();
+    static cl_kernel narrowPhaseKernel;
 
     static void ConstraintSolving();
     static cl_kernel constraintSolverKernel;
@@ -72,21 +58,29 @@ namespace FYP
     static void Integrate();
     static cl_kernel integrationKernel;
 
-
     struct BodyStruct
     {
       glm::vec3 pos;
       glm::quat orien;
       float mass;
-      //glm::mat3 inertiaTensor;
+      glm::mat3 inertiaTensor;
+
+      float linearDrag;
+      float angularDrag;
+
+      //AABB struct
+      glm::vec3 origMin;
+      glm::vec3 origMax;
+      glm::vec3 min;
+      glm::vec3 max;
+      int bodyID;
 
       glm::vec3 linearVel;
       glm::vec3 angularVel;
     };
-    static std::list< std::shared_ptr<Body> > bodies;
+    //static std::list< std::shared_ptr<Body> > bodies;
+    static std::vector<Body> bodies;
     static cl_mem bodiesMem;
-    static size_t bodiesMemSize;
-
 
   };
 }

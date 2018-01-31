@@ -177,20 +177,20 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies)
   Body leftBody = bodies[pairs[gid].leftIndx];
   Body rightBody = bodies[pairs[gid].rightIndx];
   
-  //Assuming spheres for simplest collision atm
-  
-  //
-  float radSum = leftBody.sphereRadius + rightBody.sphereRadius;
-  float dist = distance(leftBody.pos, rightBody.pos);
-  
-  if(distance < radSum)
+  //Assuming spheres for simplest collision atm 
+  if(SphereSphere(leftBody, rightBody))
   {
+    float3 midLine = leftBody.pos - rightBody.pos;
+    float dist = distance(leftBody.pos, rightBody.pos);
+    
+    float3 contactNorm = midLine * (1.0f / dist);
+    float3 contactPoint = leftBody.pos - (midLine*0.5f);
+    float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
+    
+    //Todo register contact in buffer
     
   }
   
-  //TODO
-  //Find what type of colliders each body has
-  //then send to correct function
 }
 
 __kernel void ConstraintSolver()

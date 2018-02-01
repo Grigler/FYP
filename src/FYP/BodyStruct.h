@@ -49,9 +49,10 @@ struct Body
     empty.y = 0.0f;
     empty.z = 0.0f;
 
-    pos.x = 2.0f;
-    pos.y = 2.0f;
-    pos.z = 2.0f;
+    float p = (float)(rand() % 800 - 400) / 10.0f;
+    pos.x = p;
+    pos.y = p;
+    pos.z = p;
 
     x = 0.0f; y = 0.0f; z = 0.0f; w = 1.0f;
 
@@ -73,12 +74,12 @@ struct Body
     bvLocalMax.x = 1.0f;
     bvLocalMax.y = 1.0f;
     bvLocalMax.z = 1.0f;
-    bvMin.x = -1.0f;
-    bvMin.y = -1.0f;
-    bvMin.z = -1.0f;
-    bvMax.x = 1.0f;
-    bvMax.y = 1.0f;
-    bvMax.z = 1.0f;
+    bvMin.x = p-1.0f;
+    bvMin.y = p-1.0f;
+    bvMin.z = p-1.0f;
+    bvMax.x = p+1.0f;
+    bvMax.y = p+1.0f;
+    bvMax.z = p+1.0f;
 
     sphereRadius = 1.0f;
 

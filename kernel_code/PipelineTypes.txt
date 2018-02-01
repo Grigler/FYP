@@ -11,6 +11,14 @@ typedef struct
   float z1,z2,z3;
 } Mat3;
 
+float3 VecMultMat(float3 v, Mat3 m)
+{
+  //TODO
+  float3 ret;
+  
+  return ret;
+}
+
 typedef struct 
 {
   float3 pos;
@@ -44,6 +52,12 @@ typedef struct
   
 } Body;
 
+//Applies an impulse force to body b
+void ApplyBodyImpulse(__global Body* b, float n, float3 loc)
+{
+  //TODO
+}
+
 __kernel void Integrate(__global Body *bodies, float dt)
 {
   int gid = get_global_id(0);
@@ -64,39 +78,13 @@ __kernel void Integrate(__global Body *bodies, float dt)
   bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
   
   //Applying velocities to adjust position and orientation
-  bodies[gid].pos += bodies[gid].linearVel * (dt); //TODO - if integration is done first, should update BV
+  bodies[gid].pos += bodies[gid].linearVel * (dt);
+  //TODO - if integration is done first, should update BV
   //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
   
   //Resetting accumulators
   bodies[gid].accumForce = (float3)(0.0f);
   bodies[gid].accumTorque = (float3)(0.0f);
-  
-  //DEBUG - used for testing struct packing / padding
-  /*
-  bodies[gid].pos = (float3)(-1.0f);
-  bodies[gid].x = 1.0f;
-  bodies[gid].y = 1.0f;
-  bodies[gid].z = 1.0f;
-  bodies[gid].w = 1.0f;
-  bodies[gid].x1 = 2.0f;
-  bodies[gid].x2 = 2.0f;
-  bodies[gid].x3 = 2.0f;
-  bodies[gid].y1 = 2.0f;
-  bodies[gid].y2 = 2.0f;
-  bodies[gid].y3 = 2.0f;
-  bodies[gid].z1 = 2.0f;
-  bodies[gid].z2 = 2.0f;
-  bodies[gid].z3 = 2.0f;
-  bodies[gid].mass = 3.0f;
-  bodies[gid].linearVel = (float3)(4.0f);
-  bodies[gid].angularVel = (float3)(5.0f);
-  bodies[gid].bvOrigMin = (float3)(6.0f);
-  bodies[gid].bvOrigMax = (float3)(7.0f);
-  bodies[gid].bvMin = (float3)(8.0f);
-  bodies[gid].bvMax = (float3)(9.0f);
-  bodies[gid].accumForce = (float3)(10.0f);
-  bodies[gid].accumTorque = (float3)(11.0f);
-  */
 }
 
 typedef struct
@@ -170,7 +158,44 @@ bool SphereSphere(Body l, Body r)
   return dist < radSum;
 }
 
-__kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies)
+typedef struct
+{
+  float appliedImpulse;
+  
+  //float3 relativeVel;
+  float3 normal;
+  
+  //1 / (J * M^-1 * J^T)l+r
+  float jacDiagABInv;
+  
+  //Keeping it in the constraint so it could be changed
+  //for more generic constraints later
+  float lowerLimit; //0 for contact
+  float upperLimit;  //< infinite for contact
+  
+  //indx values for bodies in bodies buffer
+  int leftIndx;
+  float3 leftDeltaLinVel;
+  float3 leftDeltaAngVel;
+  float3 leftTorqueArm;
+  
+  int rightIndx;
+  float3 rightDeltaLinVel;
+  float3 rightDeltaAngVel;
+  float3 rightTorqueArm;
+  
+} Constraint;
+
+float GetJacM(Body b, float3 contactPos, float3 contactNorm)
+{
+  float3 arm = contactPos - b.pos;
+  float3 c = cross(arm, contactNorm);
+  //v = cross(c*invInertiaTensor, arm);
+  float3 v;
+  return (1.0f/b.mass) + dot(contactNorm, v);
+}
+
+__kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __global Constraint *constraints, volatile __global int *lastConstraintIndx)
 {
   int gid = get_global_id(0);
   
@@ -187,13 +212,121 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies)
     float3 contactPoint = leftBody.pos - (midLine*0.5f);
     float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
     
-    //Todo register contact in buffer
+    //Converting into constraint format
+    Constraint c;
+    c.appliedImpulse = 0.0f;
+    c.normal = contactNorm;
+    
+    //Still don't know wtf this is
+    c.jacDiagABInv = 0.0f;
+    
+    c.lowerLimit = 0.0f;
+    c.upperLimit = INFINITY;
+    
+    c.leftIndx = pairs[gid].leftIndx;
+    c.leftDeltaLinVel = (float3)(0.0f);
+    c.leftDeltaAngVel = (float3)(0.0f);
+    
+    c.rightIndx = pairs[gid].rightIndx;
+    c.rightDeltaLinVel = (float3)(0.0f);
+    c.rightDeltaAngVel = (float3)(0.0f);
+    
+    c.jacDiagABInv = GetJacM(leftBody, contactPoint, contactNorm);
+    c.jacDiagABInv += GetJacM(rightBody, contactPoint, contactNorm);
+    c.jacDiagABInv = 1.0f / c.jacDiagABInv;
+    
+    //Write into constraint buffer
+    int indx = atomic_inc(lastConstraintIndx);
+    constraints[indx] = c;
     
   }
   
 }
 
-__kernel void ConstraintSolver()
+void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt)
 {
+   int gid = get_global_id(0);
+  
+  __global Constraint *c = &constraints[gid];
+  
+  for(int iteration = 0; iteration < 4; iteration++)
+  {
+    //float iterationInitImpulse = c->impulse;
+    
+    //m = J M^-1 J^T
+    //c->impulse = c->impulse - (1/m)(J * c->relativeVel);
+    //c->impulse = max(0, c->impulse);
+    //float3 v = c->relativeVel + (M^-1 * J^T)(c->impulse - dt);
+    
+  }
+  
+  //Apply impulses from updated impulse
+}
+
+void SolverImpulseAdd(__global float3 *deltaLinear, __global float3 *deltaAngular, float3 linearComp, float3 angularComp, float magnitude)
+{
+  *deltaLinear += linearComp*magnitude;//*linearFactor?
+  *deltaAngular += angularComp*magnitude;//*angularFactor?
+}
+
+void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constraints, float dt)
+{
+  int gid = get_global_id(0);
+  
+  __global Constraint *c = &constraints[gid];
+  
+  for(int iteration = 0; iteration < 4; iteration++)
+  {
+    float deltaImpulse = 0.0f; //c->rhs - c->appliedImpulse*c->cfm; // <-- as far as I can tell, this is for position easing
+    float deltaVelLeftDotn = dot(c->normal, c->leftDeltaLinVel) + dot(c->leftTorqueArm, c->leftDeltaAngVel);
+    float deltaVelRightDotn = -dot(c->normal, c->rightDeltaLinVel) + dot(c->rightTorqueArm, c->rightDeltaAngVel); 
+    
+    deltaImpulse -= deltaVelLeftDotn * c->jacDiagABInv;
+    deltaImpulse -= deltaVelRightDotn * c->jacDiagABInv;
+    
+    float sum = c->appliedImpulse + deltaImpulse;
+    if(sum < c->lowerLimit)
+    {
+      deltaImpulse = c->lowerLimit - c->appliedImpulse;
+      c->appliedImpulse = c->lowerLimit;
+    }
+    else if(sum > c->upperLimit)
+    {
+      deltaImpulse = c->upperLimit - c->appliedImpulse;
+      c->appliedImpulse = c->upperLimit;
+    }
+    else
+    {
+      c->appliedImpulse = sum;
+    }
+    
+    //Applying delta impulse for this iteration
+    //ApplyBodyImpulse(&bodies[c->leftIndx], deltaImpulse, c->normal);
+    //ApplyBodyImpulse(&bodies[c->rightIndx], deltaImpulse, c->normal);
+    Body b = bodies[c->leftIndx];
+    float3 angularCompDEBUG = (float3)(0.0f);
+    SolverImpulseAdd(&c->leftDeltaLinVel, &c->leftDeltaAngVel, c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
+    b = bodies[c->rightIndx];
+    SolverImpulseAdd(&c->rightDeltaLinVel, &c->rightDeltaAngVel, -c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
+  }
+}
+
+//Solver Define Flags
+//#define USE_PGS
+#define USE_SI
+
+//Takes constraints information - not contacts (contacts are in constraint form)
+__kernel void ConstraintSolver(__global Body *bodies, __global Constraint *constraints, float dt)
+{
+  //Solves contacts in a constraint format using an LCP solver (PGS)
+  
+  #ifdef USE_PGS
+    PGSSolver(bodies, constraints, dt);  
+  #elseif USE_SI
+    SequentialImpulseSolver(bodies, constraints, dt);
+  #endif
+  
   
 }
+
+

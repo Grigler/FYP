@@ -54,30 +54,34 @@ namespace FYP
 
     static void ConstraintSolving();
     static cl_kernel constraintSolverKernel;
+    static cl_mem constraintsMem;
+    static cl_mem lastConstraintIndxMem;
+
+    struct Constraint
+    {
+      cl_float appliedImpulse;
+
+      cl_float3 normal;
+
+      cl_float jacDiagABInv;
+
+      cl_float lowerLimit;
+      cl_float upperLimit;
+
+      cl_int leftIndx;
+      cl_float3 leftDeltaLinVel;
+      cl_float3 leftDeltaAngVel;
+      cl_float3 leftTorqueArm;
+
+      cl_int rightIndx;
+      cl_float3 rightDeltaLinVel;
+      cl_float3 rightDeltaAngVel;
+      cl_float3 rightTorqueArm;
+    };
 
     static void Integrate();
     static cl_kernel integrationKernel;
 
-    struct BodyStruct
-    {
-      glm::vec3 pos;
-      glm::quat orien;
-      float mass;
-      glm::mat3 inertiaTensor;
-
-      float linearDrag;
-      float angularDrag;
-
-      //AABB struct
-      glm::vec3 origMin;
-      glm::vec3 origMax;
-      glm::vec3 min;
-      glm::vec3 max;
-      int bodyID;
-
-      glm::vec3 linearVel;
-      glm::vec3 angularVel;
-    };
     //static std::list< std::shared_ptr<Body> > bodies;
     static std::vector<Body> bodies;
     static cl_mem bodiesMem;

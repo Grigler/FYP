@@ -20,6 +20,9 @@ cl_mem Pipeline::idPairsMem;
 cl_mem Pipeline::pairIndxMem;
 cl_mem Pipeline::pairsFoundMem;
 
+cl_mem Pipeline::constraintsMem;
+cl_mem Pipeline::lastConstraintIndxMem;
+
 std::vector<Body> Pipeline::bodies;
 cl_mem Pipeline::bodiesMem;
 
@@ -50,6 +53,10 @@ void Pipeline::InitKernels()
     sizeof(idPairs)*MAX_BODIES*MAX_BODIES, NULL, &ret);
   pairIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   pairsFoundMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
+  
+  constraintsMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(Constraint)*MAX_BODIES*(MAX_BODIES/8),
+    NULL, &ret);
+  lastConstraintIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   printf("> Buffers Created\n");
 
   //std::string src = Util::ReadFromFile("../kernel_code/AdjustPos.txt");
@@ -74,7 +81,7 @@ void Pipeline::InitKernels()
 
   printf("> Creating Narrowphase Kernel\n");
   narrowPhaseKernel = clCreateKernel(program, "NarrowPhase", &ret);
-  printf("> Created  Narrowphase Kernel\n");
+  printf("> Created  Narrowphase Kernel\n\n");
 
   printf("> Creating Constraint Solver Kernel\n");
   constraintSolverKernel = clCreateKernel(program, "ConstraintSolver", &ret);
@@ -83,7 +90,7 @@ void Pipeline::InitKernels()
 
 void Pipeline::BufferBodies()
 {
-  clEnqueueWriteBuffer(context->commandQueue[0], bodiesMem, CL_FALSE,
+  clEnqueueWriteBuffer(context->commandQueue[0], bodiesMem, CL_TRUE,
     0, sizeof(Body)*bodies.size(), &bodies.at(0), 0, NULL, NULL);
 }
 
@@ -93,9 +100,10 @@ void Pipeline::Update(float _dt)
 
   if (dt >= FIXED_TIME)
   {
-    printf("\tPhysics Update\n");
+    //printf("\tPhysics Update\n");
     Integrate();
     BroadPhase();
+    NarrowPhase();
     ConstraintSolving();
 
     dt = 0.0f;
@@ -115,7 +123,7 @@ void Pipeline::BroadPhase()
   //Writing zero to both int buffers
   clEnqueueWriteBuffer(context->commandQueue[0], pairIndxMem, CL_FALSE,
     0, sizeof(int), &zero, 0, NULL, NULL);
-  clEnqueueWriteBuffer(context->commandQueue[0], pairsFoundMem, CL_FALSE,
+  clEnqueueWriteBuffer(context->commandQueue[0], pairsFoundMem, CL_TRUE,
     0, sizeof(int), &zero, 0, NULL, NULL);
 
   size_t sizeHold = bodies.size();
@@ -127,12 +135,42 @@ void Pipeline::BroadPhase()
 void Pipeline::NarrowPhase()
 {
   //Reading pair data from broadphase
-  
+  clSetKernelArg(narrowPhaseKernel, 0, sizeof(idPairsMem), &idPairsMem);
+  clSetKernelArg(narrowPhaseKernel, 1, sizeof(bodiesMem), &bodiesMem);
+  clSetKernelArg(narrowPhaseKernel, 2, sizeof(constraintsMem), &constraintsMem);
+  clSetKernelArg(narrowPhaseKernel, 3, sizeof(lastConstraintIndxMem), &lastConstraintIndxMem);
+
+  int pairCount = 0;
+  clEnqueueWriteBuffer(context->commandQueue[0], lastConstraintIndxMem, CL_TRUE,
+    0, sizeof(int), &pairCount, 0, NULL, NULL); //Using pairCount towrite 0 to indx for mem
+  clEnqueueReadBuffer(context->commandQueue[0], pairsFoundMem, CL_TRUE,
+    0, sizeof(int), &pairCount, 0, NULL, NULL);
+
+  //Might not be needed - avoiding any ptr type casting from int to size_t
+  size_t workAmnt = pairCount;
+  clEnqueueNDRangeKernel(context->commandQueue[0], narrowPhaseKernel, 1, NULL,
+    &workAmnt, NULL, NULL, NULL, NULL);
+
+  clFinish(context->commandQueue[0]);
 }
 
 void Pipeline::ConstraintSolving()
 {
+  clSetKernelArg(constraintSolverKernel, 0, sizeof(bodiesMem), &bodiesMem);
+  clSetKernelArg(constraintSolverKernel, 1, sizeof(constraintsMem), &constraintsMem);
+  clSetKernelArg(constraintSolverKernel, 2, sizeof(float), &dt);
 
+  int constraintCount = 0;
+  clEnqueueReadBuffer(context->commandQueue[0], lastConstraintIndxMem, CL_TRUE,
+    0, sizeof(int), &constraintCount, 0, NULL, NULL);
+
+  //Might not be needed - avoiding any ptr type casting from int to size_t
+  size_t workAmnt = constraintCount;
+  if (workAmnt > 0)
+    clEnqueueNDRangeKernel(context->commandQueue[0], constraintSolverKernel, 1, NULL,
+      &workAmnt, NULL, NULL, NULL, NULL);
+
+  clFinish(context->commandQueue[0]);
 }
 
 void Pipeline::Integrate()
@@ -156,13 +194,4 @@ void Pipeline::Integrate()
   //static BodyStruct bs[MAX_BODIES];
   clEnqueueReadBuffer(context->commandQueue[0], bodiesMem, CL_TRUE, 0,
     sizeof(Body)*sizeHold, &bodies[0], NULL, NULL, NULL);
-
-  /*
-  size_t it = 0;
-  for (auto i = bodies.begin(); i != bodies.end(); i++)
-  {
-    std::shared_ptr<Body> b = (*i);
-    b->pos = bs[it].pos;
-  }
-  */
 }

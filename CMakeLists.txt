@@ -6,6 +6,15 @@ include_directories(
   $(PROJECT_SOURCE_DIR)/include
 )
 
+if(WIN32)
+  include_directories(
+    ${PROJECT_SOURCE_DIR}/contrib/msvc/include
+  )
+  link_directories(
+    ${PROJECT_SOURCE_DIR}/contrib/msvc/lib
+  )
+endif()
+
 #----------------------------------------
 # Building clew as a shared library
 #----------------------------------------
@@ -33,8 +42,9 @@ file(GLOB HEADERS RELATIVE ${PROJECT_SOURCE_DIR} src/FYP/*h)
   target_link_libraries(FYP clew)
 #----------------------------------------
 
-file(GLOB HEADERS RELATIVE ${PROJECT_SOURCE_DIR} src/Demo/*h)
 
+add_definitions(-DGLEW_STATIC)
+file(GLOB HEADERS RELATIVE ${PROJECT_SOURCE_DIR} src/Demo/*h)
 #----------------------------------------
 # Building Demo as executable and linking
 # to the FYP static library
@@ -42,10 +52,12 @@ file(GLOB HEADERS RELATIVE ${PROJECT_SOURCE_DIR} src/Demo/*h)
   add_executable(Demo
     ${HEADERS}
   
+    src/demo/RenderContext.cpp
+  
     src/demo/main.cpp
   )
 
-  target_link_libraries(Demo FYP)
+  target_link_libraries(Demo FYP glew32s)
 #----------------------------------------
 
 #----------------------------------------

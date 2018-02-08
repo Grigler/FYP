@@ -1,10 +1,11 @@
-#include <FYP.h>
-
 #include <iostream>
 #include <chrono>
 
-int main()
+#include "RenderContext.h"
+
+int main(int argc, char **argv)
 {
+  /*
   FYP::Pipeline::Init();
 
   bool isRunning = true;
@@ -28,6 +29,12 @@ int main()
 
   //Arbritrary key hold
   getchar();
+  */
+
+  RenderContext rc;
+
+  rc.InitWindow(argc, argv, "Test", 300, 300, 1280, 720);
+  rc.StartMainLoop();
 
   return 0;
 }

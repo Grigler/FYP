@@ -29,6 +29,8 @@ namespace FYP
 
     static void Update(float _dt);
 
+    static void CopyPosToBuffer();
+
   private:
     static std::shared_ptr<Context> context;
 

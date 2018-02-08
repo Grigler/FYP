@@ -60,7 +60,7 @@ void Pipeline::InitKernels()
   printf("> Buffers Created\n");
 
   //std::string src = Util::ReadFromFile("../kernel_code/AdjustPos.txt");
-  std::string src = Util::ReadFromFile("../kernel_code/PipelineTypes.txt");
+  std::string src = Util::ReadFromFile("../kernel_code/PipelineTypes.cl");
   const char *srcArr[] = { src.c_str() };
   const size_t sizeArr[] = { src.size() };
 

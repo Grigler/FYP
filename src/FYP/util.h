@@ -11,7 +11,7 @@ namespace Util
 { 
 
   //Returns string containing txt from _path or NULL on failure
-  std::string ReadFromFile(const char *_path)
+  static std::string ReadFromFile(const char *_path)
   {
     std::ifstream file(_path);
     if (file.is_open())

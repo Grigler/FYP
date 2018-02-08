@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <clew/clew.h>
+#include <GL/glew.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -29,10 +30,13 @@ namespace FYP
 
     static void Update(float _dt);
 
-    static void CopyPosToBuffer();
+    static void RegisterOutputVBOBuffer(GLuint _vboID);
+    static void CopyPosToVBOBuffer(GLuint _vboID);
 
   private:
     static std::shared_ptr<Context> context;
+
+    static cl_mem glVBO;
 
     static float dt;
 

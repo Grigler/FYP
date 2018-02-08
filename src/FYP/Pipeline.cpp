@@ -11,6 +11,8 @@
 
 using namespace FYP;
 
+cl_mem Pipeline::glVBO;
+
 cl_kernel Pipeline::integrationKernel;
 cl_kernel Pipeline::broadPhaseKernel;
 cl_kernel Pipeline::narrowPhaseKernel;
@@ -31,6 +33,7 @@ float Pipeline::dt = 0.0f;
 
 void Pipeline::Init()
 {
+  
   context->Create(CL_DEVICE_TYPE_ALL);
 
   //DEBUG
@@ -42,6 +45,39 @@ void Pipeline::Init()
 
   InitKernels();
 }
+
+void Pipeline::Update(float _dt)
+{
+  dt += _dt;
+
+  if (dt >= FIXED_TIME)
+  {
+    //printf("\tPhysics Update\n");
+    Integrate();
+    BroadPhase();
+    NarrowPhase();
+    ConstraintSolving();
+
+    dt = 0.0f;
+  }
+}
+void Pipeline::RegisterOutputVBOBuffer(GLuint _vboID)
+{
+  int err;
+  glVBO = clCreateFromGLBuffer(*context->GetId(), CL_MEM_READ_WRITE, _vboID, &err);
+}
+
+void Pipeline::CopyPosToVBOBuffer(GLuint _vboID)
+{
+  //Get ownership of vbo
+  clEnqueueAcquireGLObjects(context->commandQueue[0], 1, &glVBO, 0, NULL, NULL);
+  //Write position data to vbo
+  clEnqueueCopyBuffer(context->commandQueue[0], bodiesMem, glVBO,
+    0, 0, sizeof(Body)*MAX_BODIES, 0, NULL, NULL);
+  //Release ownership of vbo
+  clEnqueueReleaseGLObjects(context->commandQueue[0], 1, &glVBO, 0, NULL, NULL);
+}
+
 void Pipeline::InitKernels()
 {
   cl_int ret;
@@ -92,22 +128,6 @@ void Pipeline::BufferBodies()
 {
   clEnqueueWriteBuffer(context->commandQueue[0], bodiesMem, CL_TRUE,
     0, sizeof(Body)*bodies.size(), &bodies.at(0), 0, NULL, NULL);
-}
-
-void Pipeline::Update(float _dt)
-{
-  dt += _dt;
-
-  if (dt >= FIXED_TIME)
-  {
-    //printf("\tPhysics Update\n");
-    Integrate();
-    BroadPhase();
-    NarrowPhase();
-    ConstraintSolving();
-
-    dt = 0.0f;
-  }
 }
 
 void Pipeline::BroadPhase()

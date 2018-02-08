@@ -5,7 +5,7 @@
 
 namespace FYP
 {
-#define CL_DEVICE_MAX 2
+#define CL_DEVICE_MAX 1
 
   class Context
   {

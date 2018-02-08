@@ -52,6 +52,8 @@ file(GLOB HEADERS RELATIVE ${PROJECT_SOURCE_DIR} src/Demo/*h)
   add_executable(Demo
     ${HEADERS}
   
+    src/demo/tiny_obj_loader.cc
+  
     src/demo/RenderContext.cpp
   
     src/demo/main.cpp

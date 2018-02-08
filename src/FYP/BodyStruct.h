@@ -44,12 +44,15 @@ struct Body
 
   Body()
   {
+    static int i = -(2048 / 2);
+    i++;
+
     cl_float3 empty;
     empty.x = 0.0f;
     empty.y = 0.0f;
     empty.z = 0.0f;
 
-    float p = (float)(rand() % 800 - 400) / 10.0f;
+    float p = (float)(rand() % 2000 - 1000) / 10.0f;
     pos.x = p;
     pos.y = p;
     pos.z = p;
@@ -74,12 +77,12 @@ struct Body
     bvLocalMax.x = 1.0f;
     bvLocalMax.y = 1.0f;
     bvLocalMax.z = 1.0f;
-    bvMin.x = p-1.0f;
-    bvMin.y = p-1.0f;
-    bvMin.z = p-1.0f;
-    bvMax.x = p+1.0f;
-    bvMax.y = p+1.0f;
-    bvMax.z = p+1.0f;
+    bvMin.x = pos.x -1.0f;
+    bvMin.y = pos.y -1.0f;
+    bvMin.z = pos.z -1.0f;
+    bvMax.x = pos.x +1.0f;
+    bvMax.y = pos.y +1.0f;
+    bvMax.z = pos.z +1.0f;
 
     sphereRadius = 1.0f;
 

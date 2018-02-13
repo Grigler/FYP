@@ -44,18 +44,19 @@ struct Body
 
   Body()
   {
-    static int i = -(2048 / 2);
-    i++;
+    static cl_float i = 0;
+    i += 2.5f;
 
     cl_float3 empty;
     empty.x = 0.0f;
     empty.y = 0.0f;
     empty.z = 0.0f;
 
-    float p = (float)(rand() % 2000 - 1000) / 10.0f;
-    pos.x = p;
-    pos.y = p;
-    pos.z = p;
+    cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
+    pos.x = 0;
+    pos.y = i;
+    pos.z = 1000.0f;
+
 
     x = 0.0f; y = 0.0f; z = 0.0f; w = 1.0f;
 
@@ -88,6 +89,22 @@ struct Body
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
+
+    //staging collision
+    if (i == 2.5f)
+    {
+      pos.x = -2.0f;
+      pos.y = 0.0f;
+      pos.z = 0.0f;
+      linearVel.x = 4.0f;
+    }
+    if (i == 5.0f)
+    {
+      pos.x = 2.0f;
+      pos.y = 0.0f;
+      pos.z = 0.0f;
+      linearVel.x = -4.0f;
+    }
   }
   //TODO - API functions to update bodies and such
 };

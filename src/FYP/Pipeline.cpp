@@ -76,6 +76,7 @@ void Pipeline::CopyPosToVBOBuffer(GLuint _vboID)
     0, 0, sizeof(Body)*MAX_BODIES, 0, NULL, NULL);
   //Release ownership of vbo
   clEnqueueReleaseGLObjects(context->commandQueue[0], 1, &glVBO, 0, NULL, NULL);
+  clFinish(context->commandQueue[0]); //Needs to ensure it is release before being used by GL
 }
 
 void Pipeline::InitKernels()
@@ -96,7 +97,7 @@ void Pipeline::InitKernels()
   printf("> Buffers Created\n");
 
   //std::string src = Util::ReadFromFile("../kernel_code/AdjustPos.txt");
-  std::string src = Util::ReadFromFile("../kernel_code/PipelineTypes.cl");
+  std::string src = Util::ReadFromFile("../data/kernel_code/PipelineTypes.cl");
   const char *srcArr[] = { src.c_str() };
   const size_t sizeArr[] = { src.size() };
 

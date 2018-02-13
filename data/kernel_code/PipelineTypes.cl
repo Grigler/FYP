@@ -93,7 +93,7 @@ typedef struct
   int rightIndx;
 } IDPair;
 
-#define MAX_BODIES 2048
+#define MAX_BODIES 256
 
 typedef struct
 {
@@ -164,6 +164,7 @@ typedef struct
   
   //float3 relativeVel;
   float3 normal;
+  float3 worldPos;
   
   //1 / (J * M^-1 * J^T)l+r
   float jacDiagABInv;
@@ -186,13 +187,15 @@ typedef struct
   
 } Constraint;
 
-float GetJacM(Body b, float3 contactPos, float3 contactNorm)
+float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
 {
-  float3 arm = contactPos - b.pos;
-  float3 c = cross(arm, contactNorm);
+  //float3 arm = contactPos - b.pos;
+  //float3 c = cross(arm, contactNorm);
   //v = cross(c*invInertiaTensor, arm);
-  float3 v;
-  return (1.0f/b.mass) + dot(contactNorm, v);
+  //float3 v;
+  float lInvM = 1.0f / l.mass;
+  float rInvM = 1.0f / r.mass;
+  return -1.0f / (lInvM + rInvM);// + dot(contactNorm, v);
 }
 
 __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __global Constraint *constraints, volatile __global int *lastConstraintIndx)
@@ -216,12 +219,13 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     Constraint c;
     c.appliedImpulse = 0.0f;
     c.normal = contactNorm;
+    c.worldPos = contactPoint;
     
     //Still don't know wtf this is
     c.jacDiagABInv = 0.0f;
     
     c.lowerLimit = 0.0f;
-    c.upperLimit = INFINITY;
+    c.upperLimit = 9999999.9f;;
     
     c.leftIndx = pairs[gid].leftIndx;
     c.leftDeltaLinVel = (float3)(0.0f);
@@ -231,8 +235,8 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     c.rightDeltaLinVel = (float3)(0.0f);
     c.rightDeltaAngVel = (float3)(0.0f);
     
-    c.jacDiagABInv = GetJacM(leftBody, contactPoint, contactNorm);
-    c.jacDiagABInv += GetJacM(rightBody, contactPoint, contactNorm);
+    c.jacDiagABInv = GetJacM(leftBody, rightBody, contactPoint, contactNorm);
+    //c.jacDiagABInv += GetJacM(rightBody, contactPoint, contactNorm);
     c.jacDiagABInv = 1.0f / c.jacDiagABInv;
     
     //Write into constraint buffer
@@ -248,9 +252,24 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
    int gid = get_global_id(0);
   
   __global Constraint *c = &constraints[gid];
+  __global Body *l = &bodies[constraints[gid].leftIndx];
+  __global Body *r = &bodies[constraints[gid].rightIndx];
+  
+  //DEBUG
+  //l->linearVel = -l->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
+  //r->pos = -r->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
+  //return;
+  
+  //Store local representations of vels, impulses and positions (reduces atomic ops)
+  float3 posL = l->pos, posR = r->pos;
+  float3 linL = l->linearVel, linR = r->linearVel;
+  float3 angL = l->angularVel, angR = r->angularVel;
+  float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
   
   for(int iteration = 0; iteration < 4; iteration++)
   {
+    printf("Iteration: %i\n", iteration);
+    
     //float iterationInitImpulse = c->impulse;
     
     //m = J M^-1 J^T
@@ -258,9 +277,39 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     //c->impulse = max(0, c->impulse);
     //float3 v = c->relativeVel + (M^-1 * J^T)(c->impulse - dt);
     
+    //float3 rL = c->worldPos - posL;
+    //float3 rR = c->worldPos - posR;
+    //float3 angL = cross(rL, c->normal);
+    //float3 angR = -cross(rR, c->normal);
+    float relVel = dot(c->normal, linL) + dot(c->normal, linR); //And ang
+    float jacRelVel = relVel * c->jacDiagABInv;
+    printf("\tJac: %f\n", c->jacDiagABInv);
+    printf("\tRelVel: %f\n", relVel);
+    printf("\tJacRelVel: %f\n", jacRelVel);
+    
+    jacRelVel
+    
+    float3 linImpulseL = invMassL * c->normal * jacRelVel * dt;
+    float3 linImpulseR = invMassR * -c->normal * jacRelVel * dt;
+    //angL
+    //angR
+    
+    linL += linImpulseL;
+    linR += linImpulseR;
+    //ang+=
+    //ang+=
+    
+    printf("\timpL: %f, %f, %f\n", linImpulseL.x, linImpulseL.y, linImpulseL.z);
+    printf("\timpR: %f, %f, %f\n", linImpulseR.x, linImpulseR.y, linImpulseR.z);
+    
+    printf("\tvelL: %f, %f, %f\n", linL.x, linL.y, linL.z);
+    printf("\tvelR: %f, %f, %f\n", linR.x, linR.y, linR.z);
   }
   
-  //Apply impulses from updated impulse
+  l->linearVel = linL;
+  r->linearVel = linR;
+  //ang+=
+  //ang+=
 }
 
 void SolverImpulseAdd(__global float3 *deltaLinear, __global float3 *deltaAngular, float3 linearComp, float3 angularComp, float magnitude)
@@ -308,12 +357,13 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     SolverImpulseAdd(&c->leftDeltaLinVel, &c->leftDeltaAngVel, c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
     b = bodies[c->rightIndx];
     SolverImpulseAdd(&c->rightDeltaLinVel, &c->rightDeltaAngVel, -c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
+    //Results in a lot of atomic operations
   }
 }
 
 //Solver Define Flags
-//#define USE_PGS
-#define USE_SI
+#define USE_PGS
+//#define USE_SI
 
 //Takes constraints information - not contacts (contacts are in constraint form)
 __kernel void ConstraintSolver(__global Body *bodies, __global Constraint *constraints, float dt)
@@ -322,7 +372,7 @@ __kernel void ConstraintSolver(__global Body *bodies, __global Constraint *const
   
   #ifdef USE_PGS
     PGSSolver(bodies, constraints, dt);  
-  #elseif USE_SI
+  #elif USE_SI
     SequentialImpulseSolver(bodies, constraints, dt);
   #endif
   

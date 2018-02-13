@@ -56,9 +56,9 @@ void RenderContext::InitVBO()
   glCreateBuffers(1, &bodyID);
   glBindBuffer(GL_ARRAY_BUFFER, bodyID);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Body), 0);
-  glVertexAttribDivisor(1, 1); //Sets to 1 body per instance
+  glVertexAttribDivisor(0, 1); //Sets to 1 body per instance
   glEnableVertexAttribArray(0);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(Body)*MAX_BODIES, NULL, GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(Body)*MAX_BODIES, NULL, GL_STATIC_DRAW);
   printf("VBO id %i\n", bodyID);
   FYP::Pipeline::RegisterOutputVBOBuffer(bodyID);
 
@@ -68,15 +68,12 @@ void RenderContext::InitVBO()
   std::vector<tinyobj::material_t> matVec;
   std::string err;
 
-  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../models/sphereLOW.obj", NULL, true);
+  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../data/models/sphereLOW.obj", NULL, true);
 
   std::vector<glm::vec3> vertData;
   std::vector<glm::vec3> normData;
   std::vector<glm::vec2> uvData;
 
-  //Accumulating all vertex, normal and UV data in 3-vectors
-
-  //Loading information in location 1-position 2-normals 3-uv
   for (size_t s = 0; s < shapesVec.size(); s++)
   {
     size_t indexOffset = 0;
@@ -128,14 +125,14 @@ void RenderContext::BuildShaders()
   //Program
   programID = glCreateProgram();
   //Vert
-  std::string s = FYP::Util::ReadFromFile("../shaders/Simple.vert");
+  std::string s = FYP::Util::ReadFromFile("../data/shaders/Simple.vert");
   GLchar *ccS = (GLchar*)s.c_str();
   GLuint id = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(id, 1, &ccS, NULL);
   glCompileShader(id);
   glAttachShader(programID, id);
   //Frag
-  s = FYP::Util::ReadFromFile("../shaders/Simple.frag");
+  s = FYP::Util::ReadFromFile("../data/shaders/Simple.frag");
   ccS = (GLchar*)s.c_str();
   id = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(id, 1, &ccS, NULL);
@@ -159,14 +156,15 @@ void RenderContext::Idle()
   //Timer updating
   static float lastT = glutGet(GLUT_ELAPSED_TIME); //only run 1st time
   float t = glutGet(GLUT_ELAPSED_TIME);
-  deltaTime += (t - lastT) / 1000.0f;
+  float fixedDelta = (t - lastT) / 1000.0f;
+  deltaTime += fixedDelta;
   lastT = glutGet(GLUT_ELAPSED_TIME);
 
   //Pipeline handles fixed update - no logic needed
-  FYP::Pipeline::Update(deltaTime);
+  FYP::Pipeline::Update(fixedDelta);
 
   //Setting vSync to ~60fps
-  if (deltaTime >= 0.016f)
+  if (deltaTime >= 0.016f) //No vsync
   {
     //printf("Display\n");
     deltaTime = 0.0f;
@@ -183,6 +181,7 @@ void RenderContext::Display()
   
   //Draw Position Data
   glUseProgram(programID);
+  glBindVertexArray(VAO);
 
   glm::mat4 view = glm::lookAtRH(glm::vec3(0, 0, 10), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
   glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.01f, 1000.0f);
@@ -190,7 +189,7 @@ void RenderContext::Display()
 
   glUniformMatrix4fv(VPID, 1, GL_FALSE, &VP[0][0]);
 
-  glDrawArraysInstanced(GL_TRIANGLES, 0, sphereVerts, MAX_BODIES);
+  glDrawArraysInstanced(GL_LINES, 0, sphereVerts, MAX_BODIES);
 
   glutSwapBuffers();
 }

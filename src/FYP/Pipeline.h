@@ -15,7 +15,7 @@
 namespace FYP
 {
   //Arbitrary value, should be from hardware limits
-#define MAX_BODIES 2048
+#define MAX_BODIES 256
 #define FIXED_TIME 0.008f
 
   class Context;
@@ -68,6 +68,7 @@ namespace FYP
       cl_float appliedImpulse;
 
       cl_float3 normal;
+      cl_float3 worldPos;
 
       cl_float jacDiagABInv;
 

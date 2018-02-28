@@ -57,6 +57,7 @@ void Pipeline::Update(float _dt)
     BroadPhase();
     NarrowPhase();
     ConstraintSolving();
+    //Integrate();
 
     dt = 0.0f;
   }
@@ -177,6 +178,7 @@ void Pipeline::NarrowPhase()
 
 void Pipeline::ConstraintSolving()
 {
+  static int c = 0;
   clSetKernelArg(constraintSolverKernel, 0, sizeof(bodiesMem), &bodiesMem);
   clSetKernelArg(constraintSolverKernel, 1, sizeof(constraintsMem), &constraintsMem);
   clSetKernelArg(constraintSolverKernel, 2, sizeof(float), &dt);
@@ -187,11 +189,26 @@ void Pipeline::ConstraintSolving()
 
   //Might not be needed - avoiding any ptr type casting from int to size_t
   size_t workAmnt = constraintCount;
-  if (workAmnt > 0)
+  printf("Constraint count: %i\n", constraintCount);
+  if(constraintCount > 0)
     clEnqueueNDRangeKernel(context->commandQueue[0], constraintSolverKernel, 1, NULL,
       &workAmnt, NULL, NULL, NULL, NULL);
 
   clFinish(context->commandQueue[0]);
+
+  size_t sizeHold = bodies.size();
+  clEnqueueReadBuffer(context->commandQueue[0], bodiesMem, CL_TRUE, 0,
+    sizeof(Body)*sizeHold, &bodies[0], NULL, NULL, NULL);
+
+  if (constraintCount > 0)
+  {
+    c++;
+    //hold
+    if (c == 3)
+    {
+      char c = getchar();
+    }
+  }
 }
 
 void Pipeline::Integrate()

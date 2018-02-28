@@ -68,7 +68,7 @@ void RenderContext::InitVBO()
   std::vector<tinyobj::material_t> matVec;
   std::string err;
 
-  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../data/models/sphereLOW.obj", NULL, true);
+  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../data/models/sphere.obj", NULL, true);
 
   std::vector<glm::vec3> vertData;
   std::vector<glm::vec3> normData;

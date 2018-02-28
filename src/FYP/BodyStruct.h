@@ -97,6 +97,7 @@ struct Body
       pos.y = 0.0f;
       pos.z = 0.0f;
       linearVel.x = 4.0f;
+      mass = 5.0f;
     }
     if (i == 5.0f)
     {
@@ -104,6 +105,7 @@ struct Body
       pos.y = 0.0f;
       pos.z = 0.0f;
       linearVel.x = -4.0f;
+      mass = 5.0f;
     }
   }
   //TODO - API functions to update bodies and such

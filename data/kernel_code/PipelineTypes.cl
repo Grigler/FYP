@@ -78,6 +78,12 @@ __kernel void Integrate(__global Body *bodies, float dt)
   bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
   
   //Applying velocities to adjust position and orientation
+  if(bodies[gid].mass == 5.0f)
+  {
+    printf("\nPost integration vel: %f, %f, %f\n", 
+    bodies[gid].linearVel.x, bodies[gid].linearVel.y, bodies[gid].linearVel.z);
+  }
+  
   bodies[gid].pos += bodies[gid].linearVel * (dt);
   //TODO - if integration is done first, should update BV
   //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
@@ -165,6 +171,7 @@ typedef struct
   //float3 relativeVel;
   float3 normal;
   float3 worldPos;
+  float depth;
   
   //1 / (J * M^-1 * J^T)l+r
   float jacDiagABInv;
@@ -214,12 +221,13 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     float3 contactNorm = midLine * (1.0f / dist);
     float3 contactPoint = leftBody.pos - (midLine*0.5f);
     float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
-    
+   
     //Converting into constraint format
     Constraint c;
     c.appliedImpulse = 0.0f;
     c.normal = contactNorm;
     c.worldPos = contactPoint;
+    c.depth = penetrationDepth;
     
     //Still don't know wtf this is
     c.jacDiagABInv = 0.0f;
@@ -237,7 +245,7 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     
     c.jacDiagABInv = GetJacM(leftBody, rightBody, contactPoint, contactNorm);
     //c.jacDiagABInv += GetJacM(rightBody, contactPoint, contactNorm);
-    c.jacDiagABInv = 1.0f / c.jacDiagABInv;
+    //c.jacDiagABInv = c.jacDiagABInv;
     
     //Write into constraint buffer
     int indx = atomic_inc(lastConstraintIndx);
@@ -251,17 +259,18 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
 {
    int gid = get_global_id(0);
   
-  __global Constraint *c = &constraints[gid];
-  __global Body *l = &bodies[constraints[gid].leftIndx];
-  __global Body *r = &bodies[constraints[gid].rightIndx];
+  __global Constraint * __private c = &constraints[gid];
+  __global Body * __private l = &bodies[constraints[gid].leftIndx];
+  __global Body * __private r = &bodies[constraints[gid].rightIndx];
   
   //DEBUG
   //l->linearVel = -l->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
   //r->pos = -r->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
   //return;
   
-  //Store local representations of vels, impulses and positions (reduces atomic ops)
+  //Store private representations of vels, impulses and positions (reduces atomic ops)
   float3 posL = l->pos, posR = r->pos;
+  float3 cPosL = c->worldPos + l->pos, cPosR = c->worldPos + r->pos;
   float3 linL = l->linearVel, linR = r->linearVel;
   float3 angL = l->angularVel, angR = r->angularVel;
   float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
@@ -281,35 +290,56 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     //float3 rR = c->worldPos - posR;
     //float3 angL = cross(rL, c->normal);
     //float3 angR = -cross(rR, c->normal);
-    float relVel = dot(c->normal, linL) + dot(c->normal, linR); //And ang
-    float jacRelVel = relVel * c->jacDiagABInv;
-    printf("\tJac: %f\n", c->jacDiagABInv);
+    float relVel = dot(c->normal, linL) - dot(c->normal, linR); //And ang
     printf("\tRelVel: %f\n", relVel);
+    
+    float jacRelVel = relVel * c->jacDiagABInv;
     printf("\tJacRelVel: %f\n", jacRelVel);
     
-    jacRelVel
+    //b value
+    float beta = 0.0f;
+    float b = -(beta/dt)*c->depth;// + relVel;
+    printf("\tb: %f\n", b);
     
-    float3 linImpulseL = invMassL * c->normal * jacRelVel * dt;
-    float3 linImpulseR = invMassR * -c->normal * jacRelVel * dt;
+    float lamda = (jacRelVel);
+    //Clamping to constraints for 'project' gauss-seidel
+    lamda = max(lamda, 0.0f);
+    
+    printf("\tlamda: %f\n", lamda);
     //angL
     //angR
+ 
+    //Calculating impulse forces from lambda+b
+    float3 linImpulseL = (lamda+b) * -c->normal * invMassL;// * dt;
+    float3 linImpulseR = (lamda+b) * c->normal * invMassR;// * dt;
     
-    linL += linImpulseL;
-    linR += linImpulseR;
+    float3 cL = linImpulseL;// b;
+    float3 cR = linImpulseR;// * b;
+    
+    linL += cL;
+    linR += cR;
     //ang+=
     //ang+=
     
     printf("\timpL: %f, %f, %f\n", linImpulseL.x, linImpulseL.y, linImpulseL.z);
     printf("\timpR: %f, %f, %f\n", linImpulseR.x, linImpulseR.y, linImpulseR.z);
     
-    printf("\tvelL: %f, %f, %f\n", linL.x, linL.y, linL.z);
-    printf("\tvelR: %f, %f, %f\n", linR.x, linR.y, linR.z);
+    //printf("\tvelL: %f, %f, %f\n", linL.x, linL.y, linL.z);
+    //printf("\tvelR: %f, %f, %f\n", linR.x, linR.y, linR.z);
   }
   
+  
+  printf("\nFinalLinL: %f, %f, %f\n", linL.x, linL.y, linL.z);
+  printf("FinalLinR: %f, %f, %f\n", linR.x, linR.y, linR.z);
+
   l->linearVel = linL;
   r->linearVel = linR;
+
   //ang+=
   //ang+=
+  
+  //bodies[constraints[gid].leftIndx] = *l;
+  //bodies[constraint[gid].rightIndx] = *r;
 }
 
 void SolverImpulseAdd(__global float3 *deltaLinear, __global float3 *deltaAngular, float3 linearComp, float3 angularComp, float magnitude)

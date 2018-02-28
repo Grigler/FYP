@@ -77,13 +77,7 @@ __kernel void Integrate(__global Body *bodies, float dt)
   bodies[gid].linearVel *= (1.0f - (dt) * bodies[gid].linearDrag);
   bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
   
-  //Applying velocities to adjust position and orientation
-  if(bodies[gid].mass == 5.0f)
-  {
-    printf("\nPost integration vel: %f, %f, %f\n", 
-    bodies[gid].linearVel.x, bodies[gid].linearVel.y, bodies[gid].linearVel.z);
-  }
-  
+  //Applying velocities to adjust position and orientation 
   bodies[gid].pos += bodies[gid].linearVel * (dt);
   //TODO - if integration is done first, should update BV
   //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
@@ -196,13 +190,20 @@ typedef struct
 
 float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
 {
-  //float3 arm = contactPos - b.pos;
-  //float3 c = cross(arm, contactNorm);
-  //v = cross(c*invInertiaTensor, arm);
-  //float3 v;
-  float lInvM = 1.0f / l.mass;
-  float rInvM = 1.0f / r.mass;
-  return -1.0f / (lInvM + rInvM);// + dot(contactNorm, v);
+  float3 rnL = cross((contactPos - l.pos), contactNorm);
+  float3 rnR = cross((contactPos - r.pos), contactNorm);
+  
+  //J*M^-1 === 1/m * norm <--for linear
+  float3 jmL = (1.0f/l.mass) * contactNorm;
+  float3 jmR = (1.0f/r.mass) * -contactNorm;
+  
+  //J^T * (JM^-1) === dot(norm, JM^-1)
+  float vL = dot(jmL, contactNorm);
+  float vR = dot(jmR, -contactNorm);
+  
+  float combinedInverseMass = (1.0f/l.mass)+(1.0f/r.mass);
+  
+  return -1.0f / (combinedInverseMass + vL + vR);
 }
 
 __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __global Constraint *constraints, volatile __global int *lastConstraintIndx)
@@ -262,11 +263,7 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
   __global Constraint * __private c = &constraints[gid];
   __global Body * __private l = &bodies[constraints[gid].leftIndx];
   __global Body * __private r = &bodies[constraints[gid].rightIndx];
-  
-  //DEBUG
-  //l->linearVel = -l->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
-  //r->pos = -r->linearVel;//(float3)(0.0f, 100.0f, 0.0f);
-  //return;
+
   
   //Store private representations of vels, impulses and positions (reduces atomic ops)
   float3 posL = l->pos, posR = r->pos;
@@ -277,60 +274,48 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
   
   for(int iteration = 0; iteration < 4; iteration++)
   {
-    printf("Iteration: %i\n", iteration);
-    
-    //float iterationInitImpulse = c->impulse;
-    
-    //m = J M^-1 J^T
-    //c->impulse = c->impulse - (1/m)(J * c->relativeVel);
-    //c->impulse = max(0, c->impulse);
-    //float3 v = c->relativeVel + (M^-1 * J^T)(c->impulse - dt);
+    //printf("Iteration: %i\n", iteration);
     
     //float3 rL = c->worldPos - posL;
     //float3 rR = c->worldPos - posR;
     //float3 angL = cross(rL, c->normal);
     //float3 angR = -cross(rR, c->normal);
-    float relVel = dot(c->normal, linL) - dot(c->normal, linR); //And ang
-    printf("\tRelVel: %f\n", relVel);
+    float relVel = dot(c->normal, linL) + dot(-c->normal, linR); //And ang
+    //printf("\tRelVel: %f\n", relVel);
     
     float jacRelVel = relVel * c->jacDiagABInv;
-    printf("\tJacRelVel: %f\n", jacRelVel);
+    //printf("\tJac: %f\n", c->jacDiagABInv);
+    //printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
-    float beta = 0.0f;
-    float b = -(beta/dt)*c->depth;// + relVel;
-    printf("\tb: %f\n", b);
+    float beta = 0.8f;
+    float b = (beta/dt)*c->depth;// + relVel; ?
+    //printf("\tb: %f\n", b);
     
     float lamda = (jacRelVel);
     //Clamping to constraints for 'project' gauss-seidel
     lamda = max(lamda, 0.0f);
+
     
-    printf("\tlamda: %f\n", lamda);
     //angL
     //angR
- 
     //Calculating impulse forces from lambda+b
-    float3 linImpulseL = (lamda+b) * -c->normal * invMassL;// * dt;
-    float3 linImpulseR = (lamda+b) * c->normal * invMassR;// * dt;
+    float3 linImpulseL = (lamda+b) * c->normal * invMassL;
+    float3 linImpulseR = (lamda+b) * -c->normal * invMassR;
     
-    float3 cL = linImpulseL;// b;
-    float3 cR = linImpulseR;// * b;
+    float3 cL = linImpulseL;
+    float3 cR = linImpulseR;
     
     linL += cL;
     linR += cR;
     //ang+=
     //ang+=
-    
-    printf("\timpL: %f, %f, %f\n", linImpulseL.x, linImpulseL.y, linImpulseL.z);
-    printf("\timpR: %f, %f, %f\n", linImpulseR.x, linImpulseR.y, linImpulseR.z);
-    
-    //printf("\tvelL: %f, %f, %f\n", linL.x, linL.y, linL.z);
-    //printf("\tvelR: %f, %f, %f\n", linR.x, linR.y, linR.z);
+    barrier(CLK_GLOBAL_MEM_FENCE);
   }
   
   
-  printf("\nFinalLinL: %f, %f, %f\n", linL.x, linL.y, linL.z);
-  printf("FinalLinR: %f, %f, %f\n", linR.x, linR.y, linR.z);
+  //printf("\nFinalLinL: %f, %f, %f\n", linL.x, linL.y, linL.z);
+  //printf("FinalLinR: %f, %f, %f\n", linR.x, linR.y, linR.z);
 
   l->linearVel = linL;
   r->linearVel = linR;

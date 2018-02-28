@@ -46,6 +46,8 @@ struct Body
   {
     static cl_float i = 0;
     i += 2.5f;
+	static int amnt = 0;
+	amnt++;
 
     cl_float3 empty;
     empty.x = 0.0f;
@@ -54,8 +56,8 @@ struct Body
 
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
     pos.x = 0;
-    pos.y = i;
-    pos.z = 1000.0f;
+	pos.y = amnt * 255.5f;// *0.75f;
+    pos.z = 0.0f;
 
 
     x = 0.0f; y = 0.0f; z = 0.0f; w = 1.0f;
@@ -64,12 +66,12 @@ struct Body
     y1 = 0.0f; y2 = 1.0f; y3 = 0.0f;
     z1 = 0.0f; z2 = 0.0f; z3 = 1.0f;
 
-    mass = 2.5f;
+    mass = 5.0f;
 
     linearVel = empty;
     angularVel = empty;
 
-    linearDrag = 1.0f;
+    linearDrag = 0.5f;
     angularDrag = 1.0f;
 
     bvLocalMin.x = -1.0f;
@@ -93,19 +95,27 @@ struct Body
     //staging collision
     if (i == 2.5f)
     {
-      pos.x = -2.0f;
-      pos.y = 0.0f;
+      pos.x = -4.0f;
+      pos.y = 2.0f;
       pos.z = 0.0f;
-      linearVel.x = 4.0f;
-      mass = 5.0f;
+      linearVel.x = 6.0f;
+      mass = 20.0f;
     }
     if (i == 5.0f)
     {
-      pos.x = 2.0f;
-      pos.y = 0.0f;
+      pos.x = 0.0f;
+      pos.y = 2.0f;
       pos.z = 0.0f;
-      linearVel.x = -4.0f;
-      mass = 5.0f;
+      linearVel.x = 0.0f;
+      mass = 20.0f;
+    }
+    if (i == 7.5f)
+    {
+      pos.x = 4.0f;
+      pos.y = 2.0f;
+      pos.z = 0.0f;
+      linearVel.x = -6.0f;
+      mass = 20.0f;
     }
   }
   //TODO - API functions to update bodies and such

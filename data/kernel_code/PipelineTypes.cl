@@ -1,20 +1,73 @@
-//TODO - Implement
+//Quat and Mat3 utility functions interpreted from Bullet3 Source
 typedef struct
 {
-  float x, y, z, w;
+  float4 val;
 } Quat;
+Quat quatNorm(Quat q)
+{
+  Quat ret;
+  ret.val = fast_normalize(q.val);
+  return ret;
+}
+Quat quatMult(Quat l, Quat r)
+{
+ Quat ret;
+ ret.val = cross(l.val, r.val);
+ ret.val += l.val.w*r.val + r.val.w*l.val;
+ ret.val.w = l.val.w*r.val.w - dot(l.val, r.val);
+ return ret;
+}
+float3 quatMultV3(float3 v, Quat q)
+{
+  float3 u = (float3)(q.val.x, q.val.y, q.val.z);
+  float s = q.val.w;
+ 
+  float3 ret = 2.0f * dot(u, v) * u
+          + (s*s - dot(u, u)) * v
+          + 2.0f * s * cross(u, v);
+          
+  return ret;
+}
+float4 quatMultV4(float3 v, Quat q)
+{
+  float3 u = (float3)(q.val.x, q.val.y, q.val.z);
+  float s = q.val.w;
+ 
+  float3 r = 2.0f * dot(u, v) * u
+          + (s*s - dot(u, u)) * v
+          + 2.0f * s * cross(u, v);
+  float4 ret = (float4)(r.x,r.y,r.z,1.0f);
+  
+  return ret;
+}
+
 typedef struct
 {
-  //TODO
-  float x1,x2,x3;
-  float y1,y2,y3;
-  float z1,z2,z3;
+  float3 row[3];
 } Mat3;
 
-float3 VecMultMat(float3 v, Mat3 m)
+//interpreted from bullet3 source code
+float3 mtMul1(Mat3 m, float3 v)
 {
-  //TODO
   float3 ret;
+  
+  ret.x = dot(m.row[0], v);
+  ret.y = dot(m.row[1], v);
+  ret.z = dot(m.row[2], v);
+  
+  return ret;
+}
+float3 mtMul3(float3 v, Mat3 m)
+{
+  float3 cX = (float3)(m.row[0].x, m.row[1].x, m.row[2].x);
+  float3 cY = (float3)(m.row[0].y, m.row[1].y, m.row[2].y);
+  float3 cZ = (float3)(m.row[0].z, m.row[1].z, m.row[2].z);
+  
+  float3 ret;
+  
+  ret.x = dot(v, cX);
+  ret.y = dot(v, cY);
+  ret.z = dot(v, cZ);  
   
   return ret;
 }
@@ -22,12 +75,13 @@ float3 VecMultMat(float3 v, Mat3 m)
 typedef struct 
 {
   float3 pos;
-  float x,y,z,w;
+  Quat orien;
+  //float x,y,z,w;
   
-  //Mat3 invInertiaTensor;
-  float x1,x2,x3;
-  float y1,y2,y3;
-  float z1,z2,z3;
+  Mat3 invInertiaTensor;
+  //float x1,x2,x3;
+  //float y1,y2,y3;
+  //float z1,z2,z3;
   
   float mass;
   
@@ -52,10 +106,31 @@ typedef struct
   
 } Body;
 
-//Applies an impulse force to body b
-void ApplyBodyImpulse(__global Body* b, float n, float3 loc)
+void DebugPrintF3(float3 v)
 {
-  //TODO
+  printf("%f, %f, %f\n", v.x, v.y, v.z);
+}
+
+void UpdateBV(__global Body *b, int gid)
+{
+  float3 rOrigMin = quatMultV3(b->bvOrigMin, b->orien);
+  rOrigMin += b->pos;
+  
+  float3 rOrigMax = quatMultV3(b->bvOrigMax, b->orien);
+  rOrigMax += b->pos;
+
+  float3 newMin = min(rOrigMin, rOrigMax);
+  float3 newMax = max(rOrigMin, rOrigMax);
+  
+  if(true || !(newMax.x <= -100.0f))
+  {
+    //printf("%i newMin %f, %f, %f\n", gid, newMin.x, newMin.y, newMin.z);
+    //printf("%i newMax %f, %f, %f\n", gid, newMax.x, newMax.y, newMax.z);
+    //printf("\n");
+  }
+  
+  b->bvMin = newMin;
+  b->bvMax = newMax;
 }
 
 __kernel void Integrate(__global Body *bodies, float dt)
@@ -70,21 +145,30 @@ __kernel void Integrate(__global Body *bodies, float dt)
   linearAccel += (float3)(0.0f, -9.81f, 0.0f);
   bodies[gid].linearVel += linearAccel * (dt);
   
-  //Angular - TODO
-  //angularVel += invInertiaTensor * torque * dt
+  //Angular
+  bodies[gid].angularVel += 
+    mtMul1(bodies[gid].invInertiaTensor, bodies[gid].accumTorque) * dt;
 
   //Simplified drag applications - estimation, not strictly accurate
   bodies[gid].linearVel *= (1.0f - (dt) * bodies[gid].linearDrag);
   bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
   
-  //Applying velocities to adjust position and orientation 
+  //Linear
   bodies[gid].pos += bodies[gid].linearVel * (dt);
-  //TODO - if integration is done first, should update BV
-  //TODO - adjust rotation by angular velocity, need to lookup some Quat stuff
+  
+  //Angular
+  Quat oldQuat = bodies[gid].orien;
+  bodies[gid].orien.val = oldQuat.val +
+      quatMultV4((dt/2.0f)*bodies[gid].angularVel,oldQuat);
+  //Normalising
+  bodies[gid].orien = quatNorm(bodies[gid].orien);
+  float4 q = bodies[gid].orien.val;
   
   //Resetting accumulators
   bodies[gid].accumForce = (float3)(0.0f);
   bodies[gid].accumTorque = (float3)(0.0f);
+  
+  UpdateBV(&bodies[gid], gid);
 }
 
 typedef struct

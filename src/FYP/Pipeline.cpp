@@ -149,8 +149,9 @@ void Pipeline::BroadPhase()
     0, sizeof(int), &zero, 0, NULL, NULL);
 
   size_t sizeHold = bodies.size();
-  clEnqueueNDRangeKernel(context->commandQueue[0], broadPhaseKernel, 1, NULL,
-    &sizeHold, NULL, NULL, NULL, NULL);
+  if(sizeHold > 0)
+    clEnqueueNDRangeKernel(context->commandQueue[0], broadPhaseKernel, 1, NULL,
+      &sizeHold, NULL, NULL, NULL, NULL);
 
   clFinish(context->commandQueue[0]);
 }
@@ -168,10 +169,13 @@ void Pipeline::NarrowPhase()
   clEnqueueReadBuffer(context->commandQueue[0], pairsFoundMem, CL_TRUE,
     0, sizeof(int), &pairCount, 0, NULL, NULL);
 
+  printf("Pairs: %i\n", pairCount);
+
   //Might not be needed - avoiding any ptr type casting from int to size_t
   size_t workAmnt = pairCount;
-  clEnqueueNDRangeKernel(context->commandQueue[0], narrowPhaseKernel, 1, NULL,
-    &workAmnt, NULL, NULL, NULL, NULL);
+  if(workAmnt > 0)
+    clEnqueueNDRangeKernel(context->commandQueue[0], narrowPhaseKernel, 1, NULL,
+      &workAmnt, NULL, NULL, NULL, NULL);
 
   clFinish(context->commandQueue[0]);
 }
@@ -211,16 +215,15 @@ void Pipeline::Integrate()
   clSetKernelArg(integrationKernel, 1, sizeof(float), &dt);
 
   size_t sizeHold = bodies.size();
-
-  clEnqueueNDRangeKernel(context->commandQueue[0], integrationKernel, 1, NULL,
-    &sizeHold, NULL, NULL, NULL, NULL);
+  if(sizeHold > 0)
+    clEnqueueNDRangeKernel(context->commandQueue[0], integrationKernel, 1, NULL,
+      &sizeHold, NULL, NULL, NULL, NULL);
 
   //TODO - Double check the commandQueue doesn't implicitly handle this
   //Would be needed so that nothing is read back into the host code before
   //that kernel is done running
   clFinish(context->commandQueue[0]);
 
-  //static BodyStruct bs[MAX_BODIES];
   clEnqueueReadBuffer(context->commandQueue[0], bodiesMem, CL_TRUE, 0,
     sizeof(Body)*sizeHold, &bodies[0], NULL, NULL, NULL);
 }

@@ -54,9 +54,13 @@ void RenderContext::InitVBO()
 
   glCreateBuffers(1, &bodyID);
   glBindBuffer(GL_ARRAY_BUFFER, bodyID);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Body), 0);
-  glVertexAttribDivisor(0, 1); //Sets to 1 body per instance
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Body), 0); //Position
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Body), (GLvoid*)(sizeof(GLfloat)*4)); //Orientation
+  glVertexAttribDivisor(0, 1); //Sets to 1 body per draw instance
+  glVertexAttribDivisor(1, 1);
   glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
   glBufferData(GL_ARRAY_BUFFER, sizeof(Body)*MAX_BODIES, NULL, GL_STATIC_DRAW);
 
   FYP::Pipeline::RegisterOutputVBOBuffer(bodyID);
@@ -114,8 +118,8 @@ void RenderContext::InitVBO()
   glGenBuffers(1, &vertVBO);
   glBindBuffer(GL_ARRAY_BUFFER, vertVBO);
   glBufferData(GL_ARRAY_BUFFER, vertData.size() * sizeof(GLfloat) * 3, &vertData[0], GL_STATIC_DRAW);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); //location 1 for shader
-  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0); //location 1 for shader
+  glEnableVertexAttribArray(2);
 
 }
 
@@ -182,7 +186,7 @@ void RenderContext::Display()
   glUseProgram(programID);
   glBindVertexArray(VAO);
 
-  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 0, 10), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 0, 100), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
   glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.01f, 1000.0f);
   glm::mat4 VP = proj*view;
 

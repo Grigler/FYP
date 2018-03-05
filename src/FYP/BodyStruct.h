@@ -1,11 +1,16 @@
 #ifndef __FYP_BODY_STRUCT__
 #define __FYP_BODY_STRUCT__
 
-#include <glm/vec3.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/mat3x3.hpp>
 
 //MUST BE KEPT IN SYNC WITH KERNEL INTERPRETATION
+struct Mat3
+{
+  cl_float3 row[3];
+};
+struct Quat
+{
+  cl_float4 val;
+};
 
 struct Body
 {
@@ -13,13 +18,14 @@ struct Body
 
   //glm::quat rot;
   //quat
-  cl_float x, y, z, w;
+  //cl_float x, y, z, w;
+  Quat orien;
 
-  //glm::mat3 invInertiaTensor;
   //invInertiaTensor
-  cl_float x1, x2, x3;
-  cl_float y1, y2, y3;
-  cl_float z1, z2, z3;
+  //cl_float x1, x2, x3;
+  //cl_float y1, y2, y3;
+  //cl_float z1, z2, z3;
+  Mat3 invInertiaTensor;
 
   cl_float mass;
 
@@ -55,24 +61,22 @@ struct Body
     empty.z = 0.0f;
 
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
-    pos.x = 0;
-	pos.y = amnt * 255.5f;// *0.75f;
+    pos.x = rand()%10 - 5;
+	  pos.y = amnt * 2.0f;
     pos.z = 0.0f;
 
+    orien.val.x = 0.0f;
+    orien.val.y = 0.0f;
+    orien.val.z = 0.0f;
+    orien.val.w = 1.0f;
 
-    x = 0.0f; y = 0.0f; z = 0.0f; w = 1.0f;
-
-    x1 = 1.0f; x2 = 0.0f; x3 = 0.0f;
-    y1 = 0.0f; y2 = 1.0f; y3 = 0.0f;
-    z1 = 0.0f; z2 = 0.0f; z3 = 1.0f;
-
-    mass = 5.0f;
+    mass = rand()%50 + 1;
 
     linearVel = empty;
     angularVel = empty;
 
-    linearDrag = 0.5f;
-    angularDrag = 1.0f;
+    linearDrag = 0.2f;
+    angularDrag = 10.0f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -80,12 +84,6 @@ struct Body
     bvLocalMax.x = 1.0f;
     bvLocalMax.y = 1.0f;
     bvLocalMax.z = 1.0f;
-    bvMin.x = pos.x -1.0f;
-    bvMin.y = pos.y -1.0f;
-    bvMin.z = pos.z -1.0f;
-    bvMax.x = pos.x +1.0f;
-    bvMax.y = pos.y +1.0f;
-    bvMax.z = pos.z +1.0f;
 
     sphereRadius = 1.0f;
 
@@ -107,6 +105,9 @@ struct Body
       pos.y = 2.0f;
       pos.z = 0.0f;
       linearVel.x = 0.0f;
+      //angularVel.x = 24.0f;
+      //angularVel.y = 24.0f;
+      angularVel.z = 2.0f;
       mass = 20.0f;
     }
     if (i == 7.5f)
@@ -117,6 +118,13 @@ struct Body
       linearVel.x = -8.0f;
       mass = 20.0f;
     }
+
+    bvMin.x = pos.x - 1.0f;
+    bvMin.y = pos.y - 1.0f;
+    bvMin.z = pos.z - 1.0f;
+    bvMax.x = pos.x + 1.0f;
+    bvMax.y = pos.y + 1.0f;
+    bvMax.z = pos.z + 1.0f;
   }
   //TODO - API functions to update bodies and such
 };

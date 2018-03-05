@@ -98,7 +98,7 @@ struct Body
       pos.x = -4.0f;
       pos.y = 2.0f;
       pos.z = 0.0f;
-      linearVel.x = 6.0f;
+      linearVel.x = 8.0f;
       mass = 20.0f;
     }
     if (i == 5.0f)
@@ -114,7 +114,7 @@ struct Body
       pos.x = 4.0f;
       pos.y = 2.0f;
       pos.z = 0.0f;
-      linearVel.x = -6.0f;
+      linearVel.x = -8.0f;
       mass = 20.0f;
     }
   }

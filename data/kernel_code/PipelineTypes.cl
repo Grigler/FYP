@@ -280,7 +280,7 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     //float3 rR = c->worldPos - posR;
     //float3 angL = cross(rL, c->normal);
     //float3 angR = -cross(rR, c->normal);
-    float relVel = dot(c->normal, linL) + dot(-c->normal, linR); //And ang
+    float relVel = dot(c->normal, linL) + -dot(c->normal, linR); //And ang
     //printf("\tRelVel: %f\n", relVel);
     
     float jacRelVel = relVel * c->jacDiagABInv;
@@ -288,14 +288,14 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     //printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
-    float beta = 0.8f;
+    float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
     float b = (beta/dt)*c->depth;// + relVel; ?
     //printf("\tb: %f\n", b);
     
     float lamda = (jacRelVel);
+    
     //Clamping to constraints for 'project' gauss-seidel
     lamda = max(lamda, 0.0f);
-
     
     //angL
     //angR
@@ -310,7 +310,7 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     linR += cR;
     //ang+=
     //ang+=
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    //barrier(CLK_GLOBAL_MEM_FENCE);
   }
   
   
@@ -327,58 +327,89 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
   //bodies[constraint[gid].rightIndx] = *r;
 }
 
-void SolverImpulseAdd(__global float3 *deltaLinear, __global float3 *deltaAngular, float3 linearComp, float3 angularComp, float magnitude)
-{
-  *deltaLinear += linearComp*magnitude;//*linearFactor?
-  *deltaAngular += angularComp*magnitude;//*angularFactor?
-}
-
 void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constraints, float dt)
 {
-  int gid = get_global_id(0);
+   int gid = get_global_id(0);
   
-  __global Constraint *c = &constraints[gid];
+  __global Constraint * __private c = &constraints[gid];
+  __global Body * __private l = &bodies[constraints[gid].leftIndx];
+  __global Body * __private r = &bodies[constraints[gid].rightIndx];
+
+  
+  //Store private representations of vels, impulses and positions (reduces atomic ops)
+  float3 posL = l->pos, posR = r->pos;
+  float3 cPosL = c->worldPos + l->pos, cPosR = c->worldPos + r->pos;
+  float3 linL = l->linearVel, linR = r->linearVel;
+  float3 angL = l->angularVel, angR = r->angularVel;
+  float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
   
   for(int iteration = 0; iteration < 4; iteration++)
   {
-    float deltaImpulse = 0.0f; //c->rhs - c->appliedImpulse*c->cfm; // <-- as far as I can tell, this is for position easing
-    float deltaVelLeftDotn = dot(c->normal, c->leftDeltaLinVel) + dot(c->leftTorqueArm, c->leftDeltaAngVel);
-    float deltaVelRightDotn = -dot(c->normal, c->rightDeltaLinVel) + dot(c->rightTorqueArm, c->rightDeltaAngVel); 
+    //printf("Iteration: %i\n", iteration);
     
-    deltaImpulse -= deltaVelLeftDotn * c->jacDiagABInv;
-    deltaImpulse -= deltaVelRightDotn * c->jacDiagABInv;
+    //float3 rL = c->worldPos - posL;
+    //float3 rR = c->worldPos - posR;
+    //float3 angL = cross(rL, c->normal);
+    //float3 angR = -cross(rR, c->normal);
     
-    float sum = c->appliedImpulse + deltaImpulse;
-    if(sum < c->lowerLimit)
-    {
-      deltaImpulse = c->lowerLimit - c->appliedImpulse;
-      c->appliedImpulse = c->lowerLimit;
-    }
-    else if(sum > c->upperLimit)
-    {
-      deltaImpulse = c->upperLimit - c->appliedImpulse;
-      c->appliedImpulse = c->upperLimit;
-    }
-    else
-    {
-      c->appliedImpulse = sum;
-    }
+    linL = l->linearVel;
+    linR = r->linearVel;
+    float relVel = dot(c->normal, linL) + -dot(c->normal, linR); //And ang
+    //printf("\tRelVel: %f\n", relVel);
     
-    //Applying delta impulse for this iteration
-    //ApplyBodyImpulse(&bodies[c->leftIndx], deltaImpulse, c->normal);
-    //ApplyBodyImpulse(&bodies[c->rightIndx], deltaImpulse, c->normal);
-    Body b = bodies[c->leftIndx];
-    float3 angularCompDEBUG = (float3)(0.0f);
-    SolverImpulseAdd(&c->leftDeltaLinVel, &c->leftDeltaAngVel, c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
-    b = bodies[c->rightIndx];
-    SolverImpulseAdd(&c->rightDeltaLinVel, &c->rightDeltaAngVel, -c->normal*(1.0f/b.mass), angularCompDEBUG, deltaImpulse);
-    //Results in a lot of atomic operations
+    float jacRelVel = relVel * c->jacDiagABInv;
+    //printf("\tJac: %f\n", c->jacDiagABInv);
+    //printf("\tJacRelVel: %f\n", jacRelVel);
+    
+    //b value
+    float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
+    float b = (beta/dt)*c->depth;// + relVel; ?
+    //printf("\tb: %f\n", b);
+    
+    float lamda = (jacRelVel);
+    
+    //Clamping to constraints for 'project' gauss-seidel
+    lamda = max(lamda, 0.0f);
+    
+    //angL
+    //angR
+    //Calculating impulse forces from lambda+b
+    float3 linImpulseL = (lamda+b) * c->normal * invMassL;
+    float3 linImpulseR = (lamda+b) * -c->normal * invMassR;
+    
+    float3 cL = linImpulseL;
+    float3 cR = linImpulseR;
+    
+    l->linearVel += linImpulseL;
+    r->linearVel += linImpulseR;
+        
+    //linL += cL;
+    //linR += cR;
+    //ang+=
+    //ang+=
+    
+    //Waiting for all other threads to finish their addition
+    //to the relevant body's velocity (could be done local thread if batched)
+    barrier(CLK_GLOBAL_MEM_FENCE);
   }
+  
+  
+  //printf("\nFinalLinL: %f, %f, %f\n", linL.x, linL.y, linL.z);
+  //printf("FinalLinR: %f, %f, %f\n", linR.x, linR.y, linR.z);
+
+  //l->linearVel = linL;
+  //r->linearVel = linR;
+
+  //ang+=
+  //ang+=
+  
+  //bodies[constraints[gid].leftIndx] = *l;
+  //bodies[constraint[gid].rightIndx] = *r;
 }
 
 //Solver Define Flags
-#define USE_PGS
-//#define USE_SI
+//#define USE_PGS 1
+#define USE_SI 1
 
 //Takes constraints information - not contacts (contacts are in constraint form)
 __kernel void ConstraintSolver(__global Body *bodies, __global Constraint *constraints, float dt)

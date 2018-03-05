@@ -52,14 +52,13 @@ void RenderContext::InitVBO()
   glGenVertexArrays(1, &VAO);
   glBindVertexArray(VAO);
 
-  printf("VBO id %i\n", bodyID);
   glCreateBuffers(1, &bodyID);
   glBindBuffer(GL_ARRAY_BUFFER, bodyID);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Body), 0);
   glVertexAttribDivisor(0, 1); //Sets to 1 body per instance
   glEnableVertexAttribArray(0);
   glBufferData(GL_ARRAY_BUFFER, sizeof(Body)*MAX_BODIES, NULL, GL_STATIC_DRAW);
-  printf("VBO id %i\n", bodyID);
+
   FYP::Pipeline::RegisterOutputVBOBuffer(bodyID);
 
   //Load sphere

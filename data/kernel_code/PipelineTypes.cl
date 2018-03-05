@@ -177,7 +177,7 @@ typedef struct
   int rightIndx;
 } IDPair;
 
-#define MAX_BODIES 256
+#define MAX_BODIES 2048
 
 typedef struct
 {

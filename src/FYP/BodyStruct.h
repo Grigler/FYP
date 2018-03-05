@@ -52,8 +52,8 @@ struct Body
   {
     static cl_float i = 0;
     i += 2.5f;
-	static int amnt = 0;
-	amnt++;
+    static int amnt = 0;
+    amnt++;
 
     cl_float3 empty;
     empty.x = 0.0f;
@@ -61,16 +61,16 @@ struct Body
     empty.z = 0.0f;
 
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
-    pos.x = rand()%10 - 5;
-	  pos.y = amnt * 2.0f;
-    pos.z = 0.0f;
+    pos.x = 0.0f;// rand() % 20 - 10;
+    pos.y = amnt * 2.0f;// +rand() % 20 - 10;
+    pos.z = 5.0f;// rand() % 20 - 10;
 
     orien.val.x = 0.0f;
     orien.val.y = 0.0f;
     orien.val.z = 0.0f;
     orien.val.w = 1.0f;
 
-    mass = rand()%50 + 1;
+    mass = rand() % 50 + 1;
 
     linearVel = empty;
     angularVel = empty;
@@ -119,6 +119,15 @@ struct Body
       mass = 20.0f;
     }
 
+    if (i == 10.0f)
+    {
+      pos.x = 0.0f;
+      pos.y = -5.0f;
+      pos.z = 5;
+      linearDrag = 100.0f;
+      mass = 100.0f;
+    }
+
     bvMin.x = pos.x - 1.0f;
     bvMin.y = pos.y - 1.0f;
     bvMin.z = pos.z - 1.0f;
@@ -126,6 +135,7 @@ struct Body
     bvMax.y = pos.y + 1.0f;
     bvMax.z = pos.z + 1.0f;
   }
+
   //TODO - API functions to update bodies and such
 };
 

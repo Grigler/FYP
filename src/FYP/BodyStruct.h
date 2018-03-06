@@ -62,8 +62,8 @@ struct Body
 
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
     pos.x = 0.0f;// rand() % 20 - 10;
-    pos.y = amnt * 2.0f;// +rand() % 20 - 10;
-    pos.z = 5.0f;// rand() % 20 - 10;
+    pos.y = (amnt+10.0f) * 2.5f;// +rand() % 20 - 10;
+    pos.z = -5.0f;// rand() % 20 - 10;
 
     orien.val.x = 0.0f;
     orien.val.y = 0.0f;
@@ -119,7 +119,7 @@ struct Body
       mass = 20.0f;
     }
 
-    if (i == 10.0f)
+    if (false && i == 10.0f)
     {
       pos.x = 0.0f;
       pos.y = -5.0f;

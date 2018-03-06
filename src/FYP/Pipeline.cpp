@@ -169,7 +169,7 @@ void Pipeline::NarrowPhase()
   clEnqueueReadBuffer(context->commandQueue[0], pairsFoundMem, CL_TRUE,
     0, sizeof(int), &pairCount, 0, NULL, NULL);
 
-  printf("Pairs to check: %i\n", pairCount);
+  //printf("Pairs to check: %i\n", pairCount);
 
   //Might not be needed - avoiding any ptr type casting from int to size_t
   size_t workAmnt = pairCount;

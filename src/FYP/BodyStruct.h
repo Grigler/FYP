@@ -42,7 +42,12 @@ struct Body
   cl_float3 bvMax;
 
   //TODO - complex collider type
+  cl_bool isSphere;
+
   cl_float sphereRadius;
+  
+  Quat obbOrien;
+  cl_float3 obbHalfExtents;
 
   cl_float3 accumulatedForce;
   cl_float3 accumulatedTorque;
@@ -63,12 +68,15 @@ struct Body
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
     pos.x = 0.0f;// rand() % 20 - 10;
     pos.y = (amnt+10.0f) * 2.5f;// +rand() % 20 - 10;
-    pos.z = -5.0f;// rand() % 20 - 10;
+    pos.z = 0.0f;// rand() % 20 - 10;
 
-    orien.val.x = 0.0f;
-    orien.val.y = 0.0f;
-    orien.val.z = 0.0f;
-    orien.val.w = 1.0f;
+    Quat emptyQ;
+    emptyQ.val.x = 0.0f;
+    emptyQ.val.y = 0.0f;
+    emptyQ.val.z = 0.0f;
+    emptyQ.val.w = 1.0f;
+
+    orien = emptyQ;
 
     mass = rand() % 50 + 1;
 
@@ -85,7 +93,12 @@ struct Body
     bvLocalMax.y = 1.0f;
     bvLocalMax.z = 1.0f;
 
+    isSphere = true;
     sphereRadius = 1.0f;
+    obbOrien = emptyQ;
+    obbHalfExtents.x = 10.0f;
+    obbHalfExtents.y = 1.0f;
+    obbHalfExtents.z = 10.0f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
@@ -119,13 +132,14 @@ struct Body
       mass = 20.0f;
     }
 
-    if (false && i == 10.0f)
+    if (i == 10.0f)
     {
       pos.x = 0.0f;
-      pos.y = -5.0f;
-      pos.z = 5;
-      linearDrag = 100.0f;
-      mass = 100.0f;
+      pos.y = -2.0f;
+      pos.z = 0.0f;
+      linearDrag = 10.0f;
+      isSphere = false;
+      mass = 1000.0f;
     }
 
     bvMin.x = pos.x - 1.0f;

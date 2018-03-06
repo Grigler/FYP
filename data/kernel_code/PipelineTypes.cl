@@ -99,7 +99,12 @@ typedef struct
   //int bodyID;
   
   //TODO - Complex collider type instead of sphere
+  bool isSphere;
+  
   float sphereRadius;
+  
+  Quat obbOrien;
+  float3 obbHalfExtents;
   
   float3 accumForce;
   float3 accumTorque;
@@ -235,12 +240,7 @@ __kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *
   atomic_add(pairsFound, numFound);
 }
 
-bool SphereSphere(Body l, Body r)
-{
-  float radSum = l.sphereRadius + r.sphereRadius;
-  float dist = distance(l.pos, r.pos);
-  return dist < radSum;
-}
+
 
 typedef struct
 {
@@ -290,6 +290,40 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
   return -1.0f / (combinedInverseMass + vL + vR);
 }
 
+bool SphereSphere(Body l, Body r)
+{
+  float radSum = l.sphereRadius + r.sphereRadius;
+  float dist = distance(l.pos, r.pos);
+  return dist < radSum;
+}
+bool OBBSphere(Body o, Body s, float3 *closestPoint)
+{
+  float3 dir = s.pos - o.pos;
+  float3 result = o.pos;
+  
+  float3 up = quatMultV3((float3)(0,1,0),o.obbOrien);
+  float3 right = quatMultV3((float3)(1,0,0),o.obbOrien);
+  float3 forward = quatMultV3((float3)(0,0,1),o.obbOrien);
+  
+  float dist = dot(dir, up);
+  if(dist > o.obbHalfExtents.y) dist = o.obbHalfExtents.y;
+  if(dist < -o.obbHalfExtents.y) dist = -o.obbHalfExtents.y;
+  result += dist * up;
+  
+  dist = dot(dir, right);
+  if(dist > o.obbHalfExtents.x) dist = o.obbHalfExtents.x;
+  if(dist < -o.obbHalfExtents.x) dist = -o.obbHalfExtents.x;
+  result += dist * up;
+  
+  dist = dot(dir, forward);
+  if(dist > o.obbHalfExtents.z) dist = o.obbHalfExtents.z;
+  if(dist < -o.obbHalfExtents.z) dist = -o.obbHalfExtents.z;
+  result += dist * up;
+  
+  *closestPoint = result;
+  float3 testV = result - s.pos;
+  return dot(testV, testV) <= s.sphereRadius*s.sphereRadius;
+}
 __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __global Constraint *constraints, volatile __global int *lastConstraintIndx)
 {
   int gid = get_global_id(0);
@@ -297,8 +331,9 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
   Body leftBody = bodies[pairs[gid].leftIndx];
   Body rightBody = bodies[pairs[gid].rightIndx];
   
-  //Assuming spheres for simplest collision atm 
-  if(SphereSphere(leftBody, rightBody))
+  if(leftBody.isSphere && rightBody .isSphere)
+  {
+    if(SphereSphere(leftBody, rightBody))
   {
     float3 midLine = leftBody.pos - rightBody.pos;
     float dist = distance(leftBody.pos, rightBody.pos);
@@ -313,10 +348,7 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     c.normal = contactNorm;
     c.worldPos = contactPoint;
     c.depth = penetrationDepth;
-    
-    //Still don't know wtf this is
-    c.jacDiagABInv = 0.0f;
-    
+
     c.lowerLimit = 0.0f;
     c.upperLimit = 9999999.9f;;
     
@@ -335,6 +367,58 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
     //Write into constraint buffer
     int indx = atomic_inc(lastConstraintIndx);
     constraints[indx] = c;
+    
+  }
+  }
+  else
+  {
+    Body sphere;
+    int sIndx;
+    Body obb;
+    int oIndx;
+    //OBB
+    if(leftBody.isSphere)
+    {
+      sphere = leftBody;
+      sIndx = pairs[gid].leftIndx;
+      obb = rightBody;
+      oIndx = pairs[gid].rightIndx;
+    }
+    else
+    {
+      sphere = rightBody;
+      sIndx = pairs[gid].rightIndx;
+      obb = leftBody;
+      oIndx = pairs[gid].leftIndx;
+    }
+    
+    float3 contactPoint;
+    if(OBBSphere(sphere, obb, &contactPoint))
+    {
+      Constraint c;
+      c.appliedImpulse = 0.0f;
+      c.worldPos = contactPoint;
+      c.normal = fast_normalize(sphere.pos - obb.pos);
+      c.depth = sphere.sphereRadius - length(c.worldPos - sphere.pos);
+      printf("Depth %f\n", c.depth);
+      
+      c.lowerLimit = 0.0f;
+      c.upperLimit = 9999999.9f;;
+      
+      c.leftIndx = sIndx;
+      c.leftDeltaLinVel = (float3)(0.0f);
+      c.leftDeltaAngVel = (float3)(0.0f);
+      
+      c.rightIndx = oIndx;
+      c.rightDeltaLinVel = (float3)(0.0f);
+      c.rightDeltaAngVel = (float3)(0.0f);
+      
+      c.jacDiagABInv = GetJacM(sphere, obb, c.worldPos, c.normal);
+      //Write into constraint buffer
+      int indx = atomic_inc(lastConstraintIndx);
+      constraints[indx] = c;
+    }
+    
     
   }
   
@@ -372,7 +456,7 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
     //printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
-    float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
+    float beta = 0.1f; //Roughly a percentage of depth to remove per-iteration
     float b = (beta/dt)*c->depth;// + relVel; ?
     //printf("\tb: %f\n", b);
     

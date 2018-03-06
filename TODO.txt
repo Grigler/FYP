@@ -3,8 +3,6 @@ Broadphase
   I can tell at least), don't work on this immediately
   
 Narrowphase
-  - I need to implement more complex collider types, I'm gonna start with cubes
-  (might need to research it as an OBB, because that's basically what it is)
   - SAT might be worth looking into, but not worth worrying extensively about.
   
 Constraint Solver
@@ -12,3 +10,6 @@ Constraint Solver
   solver, at the moment only linear is being accounted for. This shouldn't be
   too difficult to implement because I made a shit tonne of comments while only 
   accounting for linear
+  
+Rendering
+  - I need a more reliable way to handle the rendering of cubes and stuff

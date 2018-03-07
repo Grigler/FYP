@@ -7,6 +7,23 @@ struct Mat3
 {
   cl_float3 row[3];
 };
+static Mat3 GetInvInertiaForSphere(float _rad, float _mass)
+{
+  Mat3 ret;
+  float diagVal = _mass*0.4f * _rad*_rad;
+  ret.row[0].x = diagVal;
+  ret.row[1].y = diagVal;
+  ret.row[2].z = diagVal;
+
+  ret.row[0].y = 0.0f;
+  ret.row[0].z = 0.0f;
+  ret.row[1].x = 0.0f;
+  ret.row[1].z = 0.0f;
+  ret.row[2].x = 0.0f;
+  ret.row[2].y = 0.0f;
+
+  return ret;
+}
 struct Quat
 {
   cl_float4 val;
@@ -26,6 +43,7 @@ struct Body
   //cl_float y1, y2, y3;
   //cl_float z1, z2, z3;
   Mat3 invInertiaTensor;
+  Mat3 worldInvInertiaTensor;
 
   cl_float mass;
 
@@ -68,7 +86,7 @@ struct Body
     cl_float p = (float)(rand() % 2000 - 1000) / 10.0f;
     pos.x = 0.0f;// rand() % 20 - 10;
     pos.y = (amnt+10.0f) * 2.5f;// +rand() % 20 - 10;
-    pos.z = 0.0f;// rand() % 20 - 10;
+    pos.z = -5.0f;// rand() % 20 - 10;
 
     Quat emptyQ;
     emptyQ.val.x = 0.0f;
@@ -84,7 +102,7 @@ struct Body
     angularVel = empty;
 
     linearDrag = 0.2f;
-    angularDrag = 10.0f;
+    angularDrag = 0.0f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -100,6 +118,9 @@ struct Body
     obbHalfExtents.y = 1.0f;
     obbHalfExtents.z = 10.0f;
 
+    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
+    worldInvInertiaTensor = invInertiaTensor;
+
     accumulatedForce = empty;
     accumulatedTorque = empty;
 
@@ -107,7 +128,7 @@ struct Body
     if (i == 2.5f)
     {
       pos.x = -4.0f;
-      pos.y = 2.0f;
+      pos.y = 1.5f;
       pos.z = 0.0f;
       linearVel.x = 8.0f;
       mass = 20.0f;
@@ -118,21 +139,21 @@ struct Body
       pos.y = 2.0f;
       pos.z = 0.0f;
       linearVel.x = 0.0f;
-      //angularVel.x = 24.0f;
-      //angularVel.y = 24.0f;
-      angularVel.z = 2.0f;
+      //angularVel.x = 100.0f;
+      //angularVel.y = 0.001f;
+      //angularVel.z = 0.5f;
       mass = 20.0f;
     }
     if (i == 7.5f)
     {
       pos.x = 4.0f;
-      pos.y = 2.0f;
+      pos.y = 2.5f;
       pos.z = 0.0f;
-      linearVel.x = -8.0f;
+      linearVel.x = 0.0f;// -8.0f;
       mass = 20.0f;
     }
 
-    if (i == 10.0f)
+    if (false && i == 10.0f)
     {
       pos.x = 0.0f;
       pos.y = -2.0f;

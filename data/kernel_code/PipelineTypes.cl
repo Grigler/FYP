@@ -247,18 +247,18 @@ __kernel void Integrate(__global Body *bodies, float dt)
     mtMul1(bodies[gid].worldInvInertiaTensor, bodies[gid].accumTorque) * dt;
   
   //Simplified drag applications - estimation, not strictly accurate
-  bodies[gid].linearVel *= (1.0f - (dt) * bodies[gid].linearDrag);
-  bodies[gid].angularVel *= (1.0f - (dt) * bodies[gid].angularDrag);
+  bodies[gid].linearVel *= (1.0f - dt*bodies[gid].linearDrag);
+  //bodies[gid].angularVel *= (1.0f - dt*bodies[gid].angularDrag);
   
   //Adjust state
   bodies[gid].pos += bodies[gid].linearVel * (dt);
   
   Quat orien = bodies[gid].orien;
-    bodies[gid].orien.val += quatMultV4(bodies[gid].angularVel * dt,orien);
+  //Ian millington
+  bodies[gid].orien.val += quatMultV4(bodies[gid].angularVel, orien) * dt*0.5f;
   //Normalising
   bodies[gid].orien = quatNorm(bodies[gid].orien);
-  float4 q = bodies[gid].orien.val;
-    
+  
   UpdateInvInertiaTensor(&bodies[gid]);
   
   //Resetting accumulators
@@ -332,8 +332,6 @@ __kernel void BroadPhase(__global Body *bodies, int numBodies, __global IDPair *
   atomic_add(pairsFound, numFound);
 }
 
-
-
 typedef struct
 {
   float appliedImpulse;
@@ -400,22 +398,18 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
   //Bullet's
   float jmj0 = 1.0f/l.mass;
   
-  float3 armL = cross(contactPos - l.pos, contactNorm);
-  float3 rL = contactPos - l.pos;
-  printf("rl: %f, %f, %f\n", rL.x, rL.y, rL.z);
-  printf("norm: %f, %f, %f\n", contactNorm.x, contactNorm.y, contactNorm.z);
+  float3 armL = cross(contactPos - l.pos, contactNorm);;
   float jmj1 = dot(mtMul3(armL, l.worldInvInertiaTensor), armL);
   
   float jmj2 = 1.0f/r.mass;
   
-  float3 armR = -cross(contactPos - r.pos, contactNorm);
-  float3 rR = contactPos - r.pos;
-  printf("rR: %f, %f, %f\n", rR.x, rR.y, rR.z);
+  float3 armR = cross(contactPos - r.pos, -contactNorm);
   float jmj3 = dot(mtMul3(armR, r.worldInvInertiaTensor), armR);
   
-  printf("jmj1: %f\njmj3: %f\n", jmj1, jmj3);
-  
-  return -1.0f / (jmj0+jmj1+jmj2+jmj3);
+  //printf("jmj1: %f\njmj3: %f\n", jmj1, jmj3);
+  float ret = -1.0f / (jmj0+jmj1+jmj2+jmj3);
+  printf("jacM: %f\n", ret);
+  return ret;
 }
 
 bool SphereSphere(Body l, Body r)
@@ -462,41 +456,39 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
   if(leftBody.isSphere && rightBody .isSphere)
   {
     if(SphereSphere(leftBody, rightBody))
-  {
-    float3 midLine = leftBody.pos - rightBody.pos;
-    float dist = distance(leftBody.pos, rightBody.pos);
-    
-    float3 contactNorm = fast_normalize(midLine * (1.0f / dist));
-    float3 contactPoint = leftBody.pos - (midLine*0.5f);
-    float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
-   
-    //Converting into constraint format
-    Constraint c;
-    c.appliedImpulse = 0.0f;
-    c.normal = contactNorm;
-    c.worldPos = contactPoint;
-    c.depth = penetrationDepth;
+    {
+      float3 midLine = leftBody.pos - rightBody.pos;
+      float dist = distance(leftBody.pos, rightBody.pos);
+      
+      float3 contactNorm = midLine / dist;
+      printf("Norm: %f, %f, %f\n", contactNorm.x, contactNorm.y, contactNorm.z);
+      float3 contactPoint = leftBody.pos + (midLine*0.5f);
+      float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
+     
+      //Converting into constraint format
+      Constraint c;
+      c.appliedImpulse = 0.0f;
+      c.normal = contactNorm;
+      c.worldPos = contactPoint;
+      c.depth = penetrationDepth;
 
-    c.lowerLimit = 0.0f;
-    c.upperLimit = 9999999.9f;;
-    
-    c.leftIndx = pairs[gid].leftIndx;
-    c.leftDeltaLinVel = (float3)(0.0f);
-    c.leftDeltaAngVel = (float3)(0.0f);
-    
-    c.rightIndx = pairs[gid].rightIndx;
-    c.rightDeltaLinVel = (float3)(0.0f);
-    c.rightDeltaAngVel = (float3)(0.0f);
-    
-    c.jacDiagABInv = GetJacM(leftBody, rightBody, contactPoint, contactNorm);
-    //c.jacDiagABInv += GetJacM(rightBody, contactPoint, contactNorm);
-    //c.jacDiagABInv = c.jacDiagABInv;
-    
-    //Write into constraint buffer
-    int indx = atomic_inc(lastConstraintIndx);
-    constraints[indx] = c;
-    
-  }
+      c.lowerLimit = 0.0f;
+      c.upperLimit = 9999999.9f;
+      
+      c.leftIndx = pairs[gid].leftIndx;
+      c.leftDeltaLinVel = (float3)(0.0f);
+      c.leftDeltaAngVel = (float3)(0.0f);
+      
+      c.rightIndx = pairs[gid].rightIndx;
+      c.rightDeltaLinVel = (float3)(0.0f);
+      c.rightDeltaAngVel = (float3)(0.0f);
+      
+      c.jacDiagABInv = GetJacM(leftBody, rightBody, contactPoint, contactNorm);
+      
+      //Write into constraint buffer
+      int indx = atomic_inc(lastConstraintIndx);
+      constraints[indx] = c;
+    }
   }
   else
   {
@@ -640,28 +632,32 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
   float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
   Mat3 invInertL = l->worldInvInertiaTensor, invInertR = r->worldInvInertiaTensor;
   
+  float3 rL = c->worldPos - posL;
+  float3 rR = c->worldPos - posR;
+  float3 aL = cross(rL, c->normal);
+  float3 aR = -cross(rR, c->normal);
+  
   for(int iteration = 0; iteration < 4; iteration++)
   {
-    printf("Iteration: %i\n", iteration);
-    
-    float3 rL = c->worldPos - posL;
-    float3 rR = c->worldPos - posR;
-    float3 aL = cross(rL, c->normal);
-    float3 aR = -cross(rR, c->normal);
-    
+    printf("\nIteration: %i\n", iteration);
+
     linL = l->linearVel;
     linR = r->linearVel;
     angL = l->angularVel;
     angR = r->angularVel;
+    
     //Lin
     float relVel = dot(c->normal, linL) + -dot(c->normal, linR);
     //Ang
     relVel += dot(aL, angL) + dot(aR, angR);
-    //printf("\tRelVel: %f\n", relVel);
+    float i = dot(aL, angL);
+    float j = dot(aR, angR);
+    printf("\tl: %f\n\tr: %f\n", i, j);
+    printf("\tRelVel: %f\n", relVel);
     
     float jacRelVel = relVel * c->jacDiagABInv;
     //printf("\tJac: %f\n", c->jacDiagABInv);
-    //printf("\tJacRelVel: %f\n", jacRelVel);
+    printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
     float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
@@ -675,6 +671,7 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     
     //Calculating impulse forces from lambda+b
     float lambdaB = lamda + b;
+    printf("\tlambdaB: %f\n", lambdaB);
     float3 linImpulseL = lambdaB * c->normal * invMassL;
     float3 linImpulseR = lambdaB * -c->normal * invMassR;
     float3 angImpulseL = lambdaB * mtMul1(invInertL, aL);

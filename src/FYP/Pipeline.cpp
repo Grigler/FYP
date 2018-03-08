@@ -44,20 +44,21 @@ void Pipeline::Init()
   }
 
   InitKernels();
+  BufferBodies();
 }
 
 void Pipeline::Update(float _dt)
 {
   dt += _dt;
-
   if (dt >= FIXED_TIME)
   {
-    //printf("\tPhysics Update\n");
+    static int debugINT = 0;
     Integrate();
     BroadPhase();
     NarrowPhase();
     ConstraintSolving();
-    //Integrate();
+
+
 
     dt = 0.0f;
   }

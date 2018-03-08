@@ -102,7 +102,7 @@ struct Body
     angularVel = empty;
 
     linearDrag = 0.2f;
-    angularDrag = 0.0f;
+    angularDrag = 0.05f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -131,6 +131,7 @@ struct Body
       pos.y = 1.5f;
       pos.z = 0.0f;
       linearVel.x = 8.0f;
+      angularVel.z = 2.0f;
       mass = 20.0f;
     }
     if (i == 5.0f)
@@ -139,6 +140,7 @@ struct Body
       pos.y = 2.0f;
       pos.z = 0.0f;
       linearVel.x = 0.0f;
+      //sphereRadius = 1.5f;
       //angularVel.x = 100.0f;
       //angularVel.y = 0.001f;
       //angularVel.z = 0.5f;

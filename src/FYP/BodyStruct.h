@@ -24,6 +24,28 @@ static Mat3 GetInvInertiaForSphere(float _rad, float _mass)
 
   return ret;
 }
+static Mat3 GetInvInertiaForBox(float _hx, float _hy, float _hz, float _mass)
+{
+  Mat3 ret;
+  _hx *= 2.0f; _hy *= 2.0f; _hz *= 2.0f;
+  float hSqr = _hy * _hy;
+  float wSqr = _hx * _hx;
+  float dSqr = _hz * _hz;
+  float sMass = _mass*(1.0f / 12.0f);
+
+  ret.row[0].x = sMass*(hSqr+dSqr);
+  ret.row[1].y = sMass*(wSqr+dSqr);
+  ret.row[2].z = sMass*(wSqr+hSqr);
+
+  ret.row[0].y = 0.0f;
+  ret.row[0].z = 0.0f;
+  ret.row[1].x = 0.0f;
+  ret.row[1].z = 0.0f;
+  ret.row[2].x = 0.0f;
+  ret.row[2].y = 0.0f;
+
+  return ret;
+}
 struct Quat
 {
   cl_float4 val;
@@ -114,12 +136,9 @@ struct Body
     isSphere = true;
     sphereRadius = 1.0f;
     obbOrien = emptyQ;
-    obbHalfExtents.x = 10.0f;
+    obbHalfExtents.x = 1.0f;
     obbHalfExtents.y = 1.0f;
-    obbHalfExtents.z = 10.0f;
-
-    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
-    worldInvInertiaTensor = invInertiaTensor;
+    obbHalfExtents.z = 1.0f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
@@ -128,10 +147,14 @@ struct Body
     if (i == 2.5f)
     {
       pos.x = -4.0f;
-      pos.y = 1.5f;
-      pos.z = 0.0f;
+      pos.y = 2.0f;
+      pos.z = 0.1f;
       linearVel.x = 8.0f;
-      angularVel.z = 2.0f;
+      //linearVel.y = 2.0f;
+      angularVel.z = -2.0f;
+      isSphere = false;
+      invInertiaTensor =
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
     if (i == 5.0f)
@@ -144,6 +167,9 @@ struct Body
       //angularVel.x = 100.0f;
       //angularVel.y = 0.001f;
       //angularVel.z = 0.5f;
+      isSphere = false;
+      invInertiaTensor =
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
     if (i == 7.5f)
@@ -155,14 +181,19 @@ struct Body
       mass = 20.0f;
     }
 
+    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
+    worldInvInertiaTensor = invInertiaTensor;
+
     if (false && i == 10.0f)
     {
-      pos.x = 0.0f;
+      pos.x = 0.1f;
       pos.y = -2.0f;
       pos.z = 0.0f;
-      linearDrag = 10.0f;
+      linearDrag = 1.0f;
       isSphere = false;
-      mass = 1000.0f;
+      mass = 10.0f;
+      invInertiaTensor = 
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
     }
 
     bvMin.x = pos.x - 1.0f;
@@ -171,6 +202,8 @@ struct Body
     bvMax.x = pos.x + 1.0f;
     bvMax.y = pos.y + 1.0f;
     bvMax.z = pos.z + 1.0f;
+
+    
   }
 
   //TODO - API functions to update bodies and such

@@ -408,7 +408,7 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
   
   //printf("jmj1: %f\njmj3: %f\n", jmj1, jmj3);
   float ret = -1.0f / (jmj0+jmj1+jmj2+jmj3);
-  printf("jacM: %f\n", ret);
+  //printf("jacM: %f\n", ret);
   return ret;
 }
 
@@ -461,7 +461,7 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
       float dist = distance(leftBody.pos, rightBody.pos);
       
       float3 contactNorm = midLine / dist;
-      printf("Norm: %f, %f, %f\n", contactNorm.x, contactNorm.y, contactNorm.z);
+      //printf("Norm: %f, %f, %f\n", contactNorm.x, contactNorm.y, contactNorm.z);
       float3 contactPoint = leftBody.pos + (midLine*0.5f);
       float penetrationDepth = (leftBody.sphereRadius + rightBody.sphereRadius) - dist;
      
@@ -520,7 +520,7 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
       c.worldPos = contactPoint;
       c.normal = fast_normalize(sphere.pos - obb.pos);
       c.depth = sphere.sphereRadius - length(c.worldPos - sphere.pos);
-      printf("Depth %f\n", c.depth);
+      //printf("Depth %f\n", c.depth);
       
       c.lowerLimit = 0.0f;
       c.upperLimit = 9999999.9f;;
@@ -633,13 +633,14 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
   Mat3 invInertL = l->worldInvInertiaTensor, invInertR = r->worldInvInertiaTensor;
   
   float3 rL = c->worldPos - posL;
+  //printf("rL: %f, %f, %f\n", rL.x, rL.y, rL.z);
   float3 rR = c->worldPos - posR;
   float3 aL = cross(rL, c->normal);
   float3 aR = -cross(rR, c->normal);
   
   for(int iteration = 0; iteration < 4; iteration++)
   {
-    printf("\nIteration: %i\n", iteration);
+    //printf("\nIteration: %i\n", iteration);
 
     linL = l->linearVel;
     linR = r->linearVel;
@@ -649,19 +650,23 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     //Lin
     float relVel = dot(c->normal, linL) + -dot(c->normal, linR);
     //Ang
-    relVel += dot(aL, angL) + dot(aR, angR);
+    //more basic version
+    float angRelVel = length(angL - angR);
+    relVel += angRelVel;//dot(aL, angL) + dot(aR, angR);
     float i = dot(aL, angL);
     float j = dot(aR, angR);
-    printf("\tl: %f\n\tr: %f\n", i, j);
-    printf("\tRelVel: %f\n", relVel);
+    //printf("\taL: %f, %f, %f\n\taR: %f, %f, %f\n", aL.x, aL.y, aL.z, aR.x, aR.y, aR.z);
+    //printf("\tl: %f\n\tr: %f\n", i, j);
+    //printf("\tangRelVel: %f\n", angRelVel);
+    //printf("\tRelVel: %f\n", relVel);
     
     float jacRelVel = relVel * c->jacDiagABInv;
     //printf("\tJac: %f\n", c->jacDiagABInv);
-    printf("\tJacRelVel: %f\n", jacRelVel);
+    //printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
     float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
-    float b = (beta/dt)*c->depth;// + relVel;// ?
+    float b = (beta/dt)*c->depth;//+ relVel;// ?
     //printf("\tb: %f\n", b);
     
     float lamda = (jacRelVel);
@@ -671,11 +676,11 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     
     //Calculating impulse forces from lambda+b
     float lambdaB = lamda + b;
-    printf("\tlambdaB: %f\n", lambdaB);
+    //printf("\tlambdaB: %f\n", lambdaB);
     float3 linImpulseL = lambdaB * c->normal * invMassL;
     float3 linImpulseR = lambdaB * -c->normal * invMassR;
-    float3 angImpulseL = lambdaB * mtMul1(invInertL, aL);
-    float3 angImpulseR = lambdaB * mtMul1(invInertR, aR);
+    float3 angImpulseL = lambdaB * mtMul1(invInertL, cross(rL, c->normal))*dt;
+    float3 angImpulseR = lambdaB * mtMul1(invInertR, cross(rR, -c->normal))*dt;
     
     //Applying linear impulse
     l->linearVel += linImpulseL;
@@ -683,9 +688,9 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     //angular impulse
     l->angularVel += angImpulseL;
     r->angularVel += angImpulseR;
-    printf("\tangL: %f, %f, %f\n\tangR: %f, %f, %f\n",
-      angImpulseL.x, angImpulseL.y, angImpulseL.z,
-      angImpulseR.x, angImpulseR.y, angImpulseR.z);
+    //printf("\tangL: %f, %f, %f\n\tangR: %f, %f, %f\n",
+    //  angImpulseL.x, angImpulseL.y, angImpulseL.z,
+    //  angImpulseR.x, angImpulseR.y, angImpulseR.z);
 
     //Waiting for all other threads to finish their addition
     //to the relevant body's velocity (could be done local thread if batched)

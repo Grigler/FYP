@@ -207,7 +207,7 @@ void RenderContext::Display()
 
 void RenderContext::Keyboard(unsigned char _key, int _x, int _y)
 {
-  printf("Key: \" %c \"\n", _key);
+  printf("Key: \"%c\"\n", _key);
   if (_key == ' ')
     gPhysToggle = !gPhysToggle;
 }

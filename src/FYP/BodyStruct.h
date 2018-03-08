@@ -136,19 +136,22 @@ struct Body
     isSphere = true;
     sphereRadius = 1.0f;
     obbOrien = emptyQ;
-    obbHalfExtents.x = 1.0f;
-    obbHalfExtents.y = 1.0f;
-    obbHalfExtents.z = 1.0f;
+    obbHalfExtents.x = 0.5f;
+    obbHalfExtents.y = 0.5f;
+    obbHalfExtents.z = 0.5f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
+
+    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
+    worldInvInertiaTensor = invInertiaTensor;
 
     //staging collision
     if (i == 2.5f)
     {
       pos.x = -4.0f;
       pos.y = 2.0f;
-      pos.z = 0.1f;
+      pos.z = 0.0f;
       linearVel.x = 8.0f;
       //linearVel.y = 2.0f;
       angularVel.z = -2.0f;
@@ -178,11 +181,13 @@ struct Body
       pos.y = 2.5f;
       pos.z = 0.0f;
       linearVel.x = 0.0f;// -8.0f;
+      isSphere = false;
+      invInertiaTensor =
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
 
-    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
-    worldInvInertiaTensor = invInertiaTensor;
+    
 
     if (false && i == 10.0f)
     {

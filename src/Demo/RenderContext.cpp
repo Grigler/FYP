@@ -74,7 +74,7 @@ void RenderContext::InitVBO()
   std::vector<tinyobj::material_t> matVec;
   std::string err;
 
-  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../data/models/sphere.obj", NULL, true);
+  bool r = tinyobj::LoadObj(&attrib, &shapesVec, &matVec, &err, "../data/models/cube.obj", NULL, true);
 
   std::vector<glm::vec3> vertData;
   std::vector<glm::vec3> normData;
@@ -197,8 +197,8 @@ void RenderContext::Display()
 
   glUniformMatrix4fv(VPID, 1, GL_FALSE, &VP[0][0]);
 
-  glDrawArraysInstanced(GL_LINES, 0, sphereVerts, MAX_BODIES);
-
+  glDrawArraysInstanced(GL_TRIANGLES, 0, sphereVerts, MAX_BODIES);
+  
   glUseProgram(0);
   glBindVertexArray(0);
 

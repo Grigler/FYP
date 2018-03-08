@@ -18,6 +18,8 @@ int RenderContext::sphereVerts = 0;
 GLuint RenderContext::programID;
 GLuint RenderContext::VPID;
 
+bool gPhysToggle = false;
+
 void RenderContext::InitWindow(int _argc, char **_argv, 
   const char *_name, int _x, int _y, int _w, int _h)
 {
@@ -34,6 +36,7 @@ void RenderContext::InitWindow(int _argc, char **_argv,
   //glutCallbacks
   glutIdleFunc(Idle);
   glutDisplayFunc(Display);
+  glutKeyboardFunc(Keyboard);
 
   //glew stuff and backface culling params
   glewExperimental = GL_TRUE;
@@ -163,11 +166,13 @@ void RenderContext::Idle()
   deltaTime += fixedDelta;
   lastT = glutGet(GLUT_ELAPSED_TIME);
 
+
   //Pipeline handles fixed update - no logic needed
-  FYP::Pipeline::Update(fixedDelta);
+  if(gPhysToggle)
+    FYP::Pipeline::Update(fixedDelta);
 
   //Setting vSync to ~60fps
-  if (deltaTime >= 0.016f) //No vsync
+  if (deltaTime >= 0.016f)
   {
     //printf("Display\n");
     deltaTime = 0.0f;
@@ -194,5 +199,15 @@ void RenderContext::Display()
 
   glDrawArraysInstanced(GL_LINES, 0, sphereVerts, MAX_BODIES);
 
+  glUseProgram(0);
+  glBindVertexArray(0);
+
   glutSwapBuffers();
+}
+
+void RenderContext::Keyboard(unsigned char _key, int _x, int _y)
+{
+  printf("Key: \"%c\"\n", _key);
+  if (_key == ' ')
+    gPhysToggle = !gPhysToggle;
 }

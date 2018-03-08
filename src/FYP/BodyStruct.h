@@ -7,6 +7,45 @@ struct Mat3
 {
   cl_float3 row[3];
 };
+static Mat3 GetInvInertiaForSphere(float _rad, float _mass)
+{
+  Mat3 ret;
+  float diagVal = _mass*0.4f * _rad*_rad;
+  ret.row[0].x = diagVal;
+  ret.row[1].y = diagVal;
+  ret.row[2].z = diagVal;
+
+  ret.row[0].y = 0.0f;
+  ret.row[0].z = 0.0f;
+  ret.row[1].x = 0.0f;
+  ret.row[1].z = 0.0f;
+  ret.row[2].x = 0.0f;
+  ret.row[2].y = 0.0f;
+
+  return ret;
+}
+static Mat3 GetInvInertiaForBox(float _hx, float _hy, float _hz, float _mass)
+{
+  Mat3 ret;
+  _hx *= 2.0f; _hy *= 2.0f; _hz *= 2.0f;
+  float hSqr = _hy * _hy;
+  float wSqr = _hx * _hx;
+  float dSqr = _hz * _hz;
+  float sMass = _mass*(1.0f / 12.0f);
+
+  ret.row[0].x = sMass*(hSqr+dSqr);
+  ret.row[1].y = sMass*(wSqr+dSqr);
+  ret.row[2].z = sMass*(wSqr+hSqr);
+
+  ret.row[0].y = 0.0f;
+  ret.row[0].z = 0.0f;
+  ret.row[1].x = 0.0f;
+  ret.row[1].z = 0.0f;
+  ret.row[2].x = 0.0f;
+  ret.row[2].y = 0.0f;
+
+  return ret;
+}
 struct Quat
 {
   cl_float4 val;
@@ -26,6 +65,7 @@ struct Body
   //cl_float y1, y2, y3;
   //cl_float z1, z2, z3;
   Mat3 invInertiaTensor;
+  Mat3 worldInvInertiaTensor;
 
   cl_float mass;
 
@@ -42,7 +82,12 @@ struct Body
   cl_float3 bvMax;
 
   //TODO - complex collider type
+  cl_bool isSphere;
+
   cl_float sphereRadius;
+  
+  Quat obbOrien;
+  cl_float3 obbHalfExtents;
 
   cl_float3 accumulatedForce;
   cl_float3 accumulatedTorque;
@@ -65,10 +110,13 @@ struct Body
     pos.y = (amnt+10.0f) * 2.5f;// +rand() % 20 - 10;
     pos.z = -5.0f;// rand() % 20 - 10;
 
-    orien.val.x = 0.0f;
-    orien.val.y = 0.0f;
-    orien.val.z = 0.0f;
-    orien.val.w = 1.0f;
+    Quat emptyQ;
+    emptyQ.val.x = 0.0f;
+    emptyQ.val.y = 0.0f;
+    emptyQ.val.z = 0.0f;
+    emptyQ.val.w = 1.0f;
+
+    orien = emptyQ;
 
     mass = rand() % 50 + 1;
 
@@ -76,7 +124,7 @@ struct Body
     angularVel = empty;
 
     linearDrag = 0.2f;
-    angularDrag = 10.0f;
+    angularDrag = 0.05f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -85,7 +133,12 @@ struct Body
     bvLocalMax.y = 1.0f;
     bvLocalMax.z = 1.0f;
 
+    isSphere = true;
     sphereRadius = 1.0f;
+    obbOrien = emptyQ;
+    obbHalfExtents.x = 1.0f;
+    obbHalfExtents.y = 1.0f;
+    obbHalfExtents.z = 1.0f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
@@ -95,8 +148,13 @@ struct Body
     {
       pos.x = -4.0f;
       pos.y = 2.0f;
-      pos.z = 0.0f;
+      pos.z = 0.1f;
       linearVel.x = 8.0f;
+      //linearVel.y = 2.0f;
+      angularVel.z = -2.0f;
+      isSphere = false;
+      invInertiaTensor =
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
     if (i == 5.0f)
@@ -105,27 +163,37 @@ struct Body
       pos.y = 2.0f;
       pos.z = 0.0f;
       linearVel.x = 0.0f;
-      //angularVel.x = 24.0f;
-      //angularVel.y = 24.0f;
-      angularVel.z = 2.0f;
+      //sphereRadius = 1.5f;
+      //angularVel.x = 100.0f;
+      //angularVel.y = 0.001f;
+      //angularVel.z = 0.5f;
+      isSphere = false;
+      invInertiaTensor =
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
     if (i == 7.5f)
     {
       pos.x = 4.0f;
-      pos.y = 2.0f;
+      pos.y = 2.5f;
       pos.z = 0.0f;
-      linearVel.x = -8.0f;
+      linearVel.x = 0.0f;// -8.0f;
       mass = 20.0f;
     }
 
+    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
+    worldInvInertiaTensor = invInertiaTensor;
+
     if (false && i == 10.0f)
     {
-      pos.x = 0.0f;
-      pos.y = -5.0f;
-      pos.z = 5;
-      linearDrag = 100.0f;
-      mass = 100.0f;
+      pos.x = 0.1f;
+      pos.y = -2.0f;
+      pos.z = 0.0f;
+      linearDrag = 1.0f;
+      isSphere = false;
+      mass = 10.0f;
+      invInertiaTensor = 
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
     }
 
     bvMin.x = pos.x - 1.0f;
@@ -134,6 +202,8 @@ struct Body
     bvMax.x = pos.x + 1.0f;
     bvMax.y = pos.y + 1.0f;
     bvMax.z = pos.z + 1.0f;
+
+    
   }
 
   //TODO - API functions to update bodies and such

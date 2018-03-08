@@ -29,6 +29,7 @@ private:
 
   static void Idle();
   static void Display();
+  static void Keyboard(unsigned char _key, int _x, int _y);
 };
 
 #endif

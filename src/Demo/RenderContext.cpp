@@ -191,7 +191,7 @@ void RenderContext::Display()
   glUseProgram(programID);
   glBindVertexArray(VAO);
 
-  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 0, 10), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 4.0f, 10), glm::vec3(0, 0,-50), glm::vec3(0, 1, 0));
   glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.01f, 1000.0f);
   glm::mat4 VP = proj*view;
 
@@ -210,4 +210,6 @@ void RenderContext::Keyboard(unsigned char _key, int _x, int _y)
   printf("Key: \"%c\"\n", _key);
   if (_key == ' ')
     gPhysToggle = !gPhysToggle;
+  else if (_key == 'r' || _key == 'R')
+    FYP::Pipeline::Init();
 }

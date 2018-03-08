@@ -33,18 +33,23 @@ float Pipeline::dt = 0.0f;
 
 void Pipeline::Init()
 {
-  
-  context->Create(CL_DEVICE_TYPE_ALL);
+  static bool firstInit = true;
+
+  if (firstInit)
+  {
+    context->Create(CL_DEVICE_TYPE_ALL);
+    InitKernels();
+    firstInit = false;
+  }
 
   //DEBUG
+  bodies.clear();
   for (int i = 0; i < MAX_BODIES; i++)
   {
     Body b = Body();
     bodies.push_back(b);
   }
-
-  InitKernels();
-  BufferBodies();
+  BufferBodies();  
 }
 
 void Pipeline::Update(float _dt)

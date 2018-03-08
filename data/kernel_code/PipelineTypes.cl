@@ -1,4 +1,7 @@
-//Quat and Mat3 utility functions interpreted from Bullet3 Source
+#define MAX_BODIES 4096
+
+//Quat and Mat3 utility functions interpreted from 
+//Bullet3 Source and partially from GLM source
 typedef struct
 {
   float4 val;
@@ -274,7 +277,7 @@ typedef struct
   int rightIndx;
 } IDPair;
 
-#define MAX_BODIES 2048
+
 
 typedef struct
 {
@@ -638,7 +641,7 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
   float3 aL = cross(rL, c->normal);
   float3 aR = -cross(rR, c->normal);
   
-  for(int iteration = 0; iteration < 4; iteration++)
+  for(int iteration = 0; iteration < 2; iteration++)
   {
     //printf("\nIteration: %i\n", iteration);
 

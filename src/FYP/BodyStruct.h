@@ -146,12 +146,20 @@ struct Body
     invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
     worldInvInertiaTensor = invInertiaTensor;
 
+    static float offset = 0.0f;
+    if (i == 10.0f)
+    {
+      i = 2.5f;
+      offset -= 2.5f;
+    }
+
+
     //staging collision
     if (i == 2.5f)
     {
       pos.x = -4.0f;
       pos.y = 2.0f;
-      pos.z = 0.0f;
+      pos.z = offset;
       linearVel.x = 8.0f;
       //linearVel.y = 2.0f;
       angularVel.z = -2.0f;
@@ -164,7 +172,7 @@ struct Body
     {
       pos.x = 0.0f;
       pos.y = 2.0f;
-      pos.z = 0.0f;
+      pos.z = offset;
       linearVel.x = 0.0f;
       //sphereRadius = 1.5f;
       //angularVel.x = 100.0f;
@@ -178,29 +186,17 @@ struct Body
     if (i == 7.5f)
     {
       pos.x = 4.0f;
-      pos.y = 2.5f;
-      pos.z = 0.0f;
-      linearVel.x = 0.0f;// -8.0f;
+      pos.y = 2.0f;
+      pos.z = offset;
+      linearVel.x = -8.0f;
       isSphere = false;
+      angularVel.z = 2.0f;
       invInertiaTensor =
         GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
       mass = 20.0f;
     }
 
     
-
-    if (false && i == 10.0f)
-    {
-      pos.x = 0.1f;
-      pos.y = -2.0f;
-      pos.z = 0.0f;
-      linearDrag = 1.0f;
-      isSphere = false;
-      mass = 10.0f;
-      invInertiaTensor = 
-        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
-    }
-
     bvMin.x = pos.x - 1.0f;
     bvMin.y = pos.y - 1.0f;
     bvMin.z = pos.z - 1.0f;

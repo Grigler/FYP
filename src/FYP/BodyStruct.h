@@ -123,8 +123,8 @@ struct Body
     linearVel = empty;
     angularVel = empty;
 
-    linearDrag = 0.2f;
-    angularDrag = 0.05f;
+    linearDrag = 0.5f;
+    angularDrag = 0.2f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -136,9 +136,9 @@ struct Body
     isSphere = true;
     sphereRadius = 1.0f;
     obbOrien = emptyQ;
-    obbHalfExtents.x = 250.0f;
-    obbHalfExtents.y = 0.1f;
-    obbHalfExtents.z = 250.0f;
+    obbHalfExtents.x = 500.0f;
+    obbHalfExtents.y = 0.5f;
+    obbHalfExtents.z = 500.0f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
@@ -157,11 +157,11 @@ struct Body
     //staging collision
     if (i == 2.5f)
     {
-      pos.x = -4.0f;
+      //pos.x = -4.0f;
       pos.y = 2.0f;
       pos.z = offset;
-      linearVel.x = 8.0f;
-      //linearVel.y = 2.0f;
+      //linearVel.x = 8.0f;
+      linearVel.y = 2.0f;
       angularVel.z = -2.0f;
       isSphere = true;
       invMass = 1.0f / 20.0f;
@@ -178,6 +178,12 @@ struct Body
       //angularVel.x = 100.0f;
       //angularVel.y = 0.001f;
       //angularVel.z = 0.5f;
+      bvLocalMin.x = -500.0f;
+      bvLocalMin.y = -100.0f;
+      bvLocalMin.z = -500.0f;
+      bvLocalMax.x = 500.0f;
+      bvLocalMax.y = 100.0f;
+      bvLocalMax.z = 500.0f;
       isSphere = false;
       invMass = 0.0f;
       invInertiaTensor =

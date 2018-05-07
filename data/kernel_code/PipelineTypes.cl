@@ -249,7 +249,7 @@ __kernel void Integrate(__global Body *bodies, float dt)
   
   //Simplified drag applications - estimation, not strictly accurate
   bodies[gid].linearVel *= (1.0f - dt*bodies[gid].linearDrag);
-  //bodies[gid].angularVel *= (1.0f - dt*bodies[gid].angularDrag);
+  bodies[gid].angularVel *= (1.0f - dt*bodies[gid].angularDrag);
   
   //Adjust state
   bodies[gid].pos += bodies[gid].linearVel * (dt);
@@ -408,6 +408,7 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
   float jmj3 = dot(mtMul3(armR, r.worldInvInertiaTensor), armR);
   
   //printf("jmj1: %f\njmj3: %f\n", jmj1, jmj3);
+  // -(1/ (J*M^-1*J^T))
   float ret = -1.0f / (jmj0+jmj1+jmj2+jmj3);
   //printf("jacM: %f\n", ret);
   return ret;
@@ -479,7 +480,7 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
       c.appliedImpulse = 0.0f;
       c.normal = contactNorm;
       c.worldPos = contactPoint;
-      c.depth = penetrationDepth;
+      c.depth = fabs(penetrationDepth);
 
       c.lowerLimit = 0.0f;
       c.upperLimit = 9999999.9f;
@@ -647,7 +648,8 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
   float3 aL = cross(rL, c->normal);
   float3 aR = -cross(rR, c->normal);
   
-  for(int iteration = 0; iteration < 2; iteration++)
+  float lambdaAccum = 0.0f;
+  for(int iteration = 0; iteration < 4; iteration++)
   {
     //printf("\nIteration: %i\n", iteration);
 
@@ -660,48 +662,49 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     float relVel = dot(c->normal, linL) + dot(-c->normal, linR);
     //Ang
     //more basic version
-    float angRelVel = length(angL - angR);
+    //float angRelVel = length(angL - angR);
     relVel += dot(aL, angL) + dot(aR, angR);
-    float i = dot(aL, angL);
-    float j = dot(aR, angR);
+    //float i = dot(aL, angL);
+    //float j = dot(aR, angR);
     //printf("\taL: %f, %f, %f\n\taR: %f, %f, %f\n", aL.x, aL.y, aL.z, aR.x, aR.y, aR.z);
     //printf("\tl: %f\n\tr: %f\n", i, j);
     //printf("\tangRelVel: %f\n", angRelVel);
-    //printf("\tRelVel: %f\n", relVel);
-    
-    float jacRelVel = relVel * c->jacDiagABInv;
-    //printf("\tJac: %f\n", c->jacDiagABInv);
-    printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
     float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
     float b = (beta/dt)*c->depth;//+ relVel;// ?
-    printf("\tb: %f\n", b);
+    //printf("\tdt: %f\n", dt);
+    //printf("\tdepth: %f\n", c->depth);
+    //printf("\tb: %f\n", b);
+
+    //printf("\teffectiveMass: %f\n", c->jacDiagABInv);
+    //printf("\trelvel: %f\n", relVel);
+    float lambda = c->jacDiagABInv*(relVel + b);
+    //printf("\tlambda: %f\n", lambda);
     
-    float lambda = (jacRelVel);
-    //Clamping to constraints for 'project' gauss-seidel
-    lambda = max(lambda, 0.0f);
-    printf("lambda: %f\n", lambda);
+    //Using lambdaAccumulator
+    float preClamp = lambdaAccum;
+    //printf("\tpreAccum: %f\n", preClamp);
+    lambdaAccum += lambda;
+    //printf("\tlambdaAccum: %f\n", lambdaAccum);
+    lambdaAccum = max(lambdaAccum, 0.0f);
+    //printf("\tlambdaAccum: %f\n", lambdaAccum);
+    //Re-adjusting lambda to apply based on clamping
+    lambda = lambdaAccum - preClamp;
+    //printf("\tlambda: %f\n", lambda);
     
-    //Calculating impulse forces from lambda+b
-    float lambdaB = lambda + b;
-    printf("\tlambdaB: %f\n", lambdaB);
-    float3 linImpulseL = lambdaB * c->normal * invMassL;
-    float3 linImpulseR = lambdaB * -c->normal * invMassR;
-    float3 angImpulseL = lambdaB * mtMul1(invInertL, cross(rL, c->normal))*dt;
-    float3 angImpulseR = lambdaB * mtMul1(invInertR, cross(rR, -c->normal))*dt;
+    float3 linImpulseL = lambda * c->normal * invMassL;
+    float3 linImpulseR = lambda * -c->normal * invMassR;
+    float3 angImpulseL = lambda * mtMul1(invInertL, cross(rL, c->normal));
+    float3 angImpulseR = lambda * mtMul1(invInertR, cross(rR, -c->normal));
     
-    
-    if(relVel => 0.0f)
-    {
-      //Applying linear impulse
-      l->linearVel += linImpulseL;
-      r->linearVel += linImpulseR;
-      //angular impulse
-      l->angularVel += angImpulseL;
-      r->angularVel += angImpulseR;
-    }
-    
+    //Applying linear impulse
+    l->linearVel += linImpulseL;
+    r->linearVel += linImpulseR;
+    //angular impulse
+    l->angularVel += angImpulseL;
+    r->angularVel += angImpulseR;
+      
     //printf("\tangL: %f, %f, %f\n\tangR: %f, %f, %f\n",
     //  angImpulseL.x, angImpulseL.y, angImpulseL.z,
     //  angImpulseR.x, angImpulseR.y, angImpulseR.z);

@@ -168,6 +168,7 @@ void RenderContext::Idle()
 
 
   //Pipeline handles fixed update - no logic needed
+  //printf("dt: %f\n", fixedDelta);
   if(gPhysToggle)
     FYP::Pipeline::Update(fixedDelta);
 
@@ -190,8 +191,8 @@ void RenderContext::Display()
   //Draw Position Data
   glUseProgram(programID);
   glBindVertexArray(VAO);
-
-  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 4.0f, 10), glm::vec3(0, 0,-50), glm::vec3(0, 1, 0));
+  
+  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 4.0f, 20), glm::vec3(0, 0,-50), glm::vec3(0, 1, 0));
   glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.01f, 1000.0f);
   glm::mat4 VP = proj*view;
 

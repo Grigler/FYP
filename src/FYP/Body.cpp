@@ -24,9 +24,7 @@ Body::Body()
   {
     bvMin = glm::vec3(-2);
     bvMax = glm::vec3(2);
-  }
-
-  
+  }  
 }
 
 glm::mat3 Body::GenSphereInertiaTensor()

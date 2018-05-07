@@ -163,7 +163,7 @@ typedef struct
   //float y1,y2,y3;
   //float z1,z2,z3;
   
-  float mass;
+  float invMass;
   
   float3 linearVel;
   float3 angularVel;
@@ -230,17 +230,15 @@ __kernel void Integrate(__global Body *bodies, float dt)
 {
   int gid = get_global_id(0);
   
-  if(bodies[gid].pos.z == 0.0f)
+  if(bodies[gid].invMass == 0.0f)
   {
-    //printf("Int\n");
-    //mtPrint(quatToMat(bodies[gid].orien));
-    //mtPrint(bodies[gid].worldInvInertiaTensor);
+    return;
   }
   
-  //TODO - handle 0/infinite mass
   //Linear
-  float mass = max(bodies[gid].mass, 0.01f);
-  float3 linearAccel = bodies[gid].accumForce / mass;
+  //float mass = max(bodies[gid].mass, 0.01f); <-- Maybe still clamp?
+  float invMass = bodies[gid].invMass;
+  float3 linearAccel = bodies[gid].accumForce * invMass;
   //Gravity
   linearAccel += (float3)(0.0f, -9.81f, 0.0f);
   bodies[gid].linearVel += linearAccel * (dt);
@@ -399,12 +397,12 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
   return -1.0f / (combinedInverseMass + vL + vR + ajmL + ajmR);
   */
   //Bullet's
-  float jmj0 = 1.0f/l.mass;
+  float jmj0 = l.invMass;
   
   float3 armL = cross(contactPos - l.pos, contactNorm);;
   float jmj1 = dot(mtMul3(armL, l.worldInvInertiaTensor), armL);
   
-  float jmj2 = 1.0f/r.mass;
+  float jmj2 = r.invMass;
   
   float3 armR = cross(contactPos - r.pos, -contactNorm);
   float jmj3 = dot(mtMul3(armR, r.worldInvInertiaTensor), armR);
@@ -417,6 +415,7 @@ float GetJacM(Body l, Body r, float3 contactPos, float3 contactNorm)
 
 bool SphereSphere(Body l, Body r)
 {
+  //TODO - Switch to faster square check
   float radSum = l.sphereRadius + r.sphereRadius;
   float dist = distance(l.pos, r.pos);
   return dist < radSum;
@@ -427,26 +426,33 @@ bool OBBSphere(Body o, Body s, float3 *closestPoint)
   float3 result = o.pos;
   
   float3 up = quatMultV3((float3)(0,1,0),o.obbOrien);
+  //printf("Up: %f, %f, %f\n", up.x, up.y, up.z);
   float3 right = quatMultV3((float3)(1,0,0),o.obbOrien);
+  //printf("Ri: %f, %f, %f\n", right.x, right.y, right.z);
   float3 forward = quatMultV3((float3)(0,0,1),o.obbOrien);
+  //printf("Fo: %f, %f, %f\n", forward.x, forward.y, forward.z);
   
   float dist = dot(dir, up);
   if(dist > o.obbHalfExtents.y) dist = o.obbHalfExtents.y;
   if(dist < -o.obbHalfExtents.y) dist = -o.obbHalfExtents.y;
   result += dist * up;
+  //printf("Dir: %f, %f, %f\nDist a: %f\n  Result a: %f\n", dir.x, dir.y, dir.z, dist, result);
   
   dist = dot(dir, right);
   if(dist > o.obbHalfExtents.x) dist = o.obbHalfExtents.x;
   if(dist < -o.obbHalfExtents.x) dist = -o.obbHalfExtents.x;
-  result += dist * up;
+  result += dist * right;
+  //printf("Dist b: %f\n  Result b: %f\n", dist, result);
   
   dist = dot(dir, forward);
   if(dist > o.obbHalfExtents.z) dist = o.obbHalfExtents.z;
   if(dist < -o.obbHalfExtents.z) dist = -o.obbHalfExtents.z;
-  result += dist * up;
+  result += dist * forward;
+  //printf("Dist c: %f\n  Result c: %f\n", dist, result);
   
   *closestPoint = result;
   float3 testV = result - s.pos;
+
   return dot(testV, testV) <= s.sphereRadius*s.sphereRadius;
 }
 __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __global Constraint *constraints, volatile __global int *lastConstraintIndx)
@@ -561,7 +567,7 @@ void PGSSolver(__global Body *bodies, __global Constraint *constraints, float dt
   float3 cPosL = c->worldPos + l->pos, cPosR = c->worldPos + r->pos;
   float3 linL = l->linearVel, linR = r->linearVel;
   float3 angL = l->angularVel, angR = r->angularVel;
-  float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
+  float invMassL = l->invMass, invMassR = r->invMass;
   
   for(int iteration = 0; iteration < 4; iteration++)
   {
@@ -632,7 +638,7 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
   float3 cPosL = c->worldPos + l->pos, cPosR = c->worldPos + r->pos;
   float3 linL = l->linearVel, linR = r->linearVel;
   float3 angL = l->angularVel, angR = r->angularVel;
-  float invMassL = 1.0f / l->mass, invMassR = 1.0f / r->mass;
+  float invMassL = l->invMass, invMassR = r->invMass;
   Mat3 invInertL = l->worldInvInertiaTensor, invInertR = r->worldInvInertiaTensor;
   
   float3 rL = c->worldPos - posL;
@@ -651,11 +657,11 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     angR = r->angularVel;
     
     //Lin
-    float relVel = dot(c->normal, linL) + -dot(c->normal, linR);
+    float relVel = dot(c->normal, linL) + dot(-c->normal, linR);
     //Ang
     //more basic version
     float angRelVel = length(angL - angR);
-    relVel += angRelVel;//dot(aL, angL) + dot(aR, angR);
+    relVel += dot(aL, angL) + dot(aR, angR);
     float i = dot(aL, angL);
     float j = dot(aR, angR);
     //printf("\taL: %f, %f, %f\n\taR: %f, %f, %f\n", aL.x, aL.y, aL.z, aR.x, aR.y, aR.z);
@@ -665,36 +671,41 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
     
     float jacRelVel = relVel * c->jacDiagABInv;
     //printf("\tJac: %f\n", c->jacDiagABInv);
-    //printf("\tJacRelVel: %f\n", jacRelVel);
+    printf("\tJacRelVel: %f\n", jacRelVel);
     
     //b value
     float beta = 0.8f; //Roughly a percentage of depth to remove per-iteration
     float b = (beta/dt)*c->depth;//+ relVel;// ?
-    //printf("\tb: %f\n", b);
+    printf("\tb: %f\n", b);
     
-    float lamda = (jacRelVel);
+    float lambda = (jacRelVel);
     //Clamping to constraints for 'project' gauss-seidel
-    lamda = max(lamda, 0.0f);
-    
+    lambda = max(lambda, 0.0f);
+    printf("lambda: %f\n", lambda);
     
     //Calculating impulse forces from lambda+b
-    float lambdaB = lamda + b;
-    //printf("\tlambdaB: %f\n", lambdaB);
+    float lambdaB = lambda + b;
+    printf("\tlambdaB: %f\n", lambdaB);
     float3 linImpulseL = lambdaB * c->normal * invMassL;
     float3 linImpulseR = lambdaB * -c->normal * invMassR;
     float3 angImpulseL = lambdaB * mtMul1(invInertL, cross(rL, c->normal))*dt;
     float3 angImpulseR = lambdaB * mtMul1(invInertR, cross(rR, -c->normal))*dt;
     
-    //Applying linear impulse
-    l->linearVel += linImpulseL;
-    r->linearVel += linImpulseR;
-    //angular impulse
-    l->angularVel += angImpulseL;
-    r->angularVel += angImpulseR;
+    
+    if(relVel => 0.0f)
+    {
+      //Applying linear impulse
+      l->linearVel += linImpulseL;
+      r->linearVel += linImpulseR;
+      //angular impulse
+      l->angularVel += angImpulseL;
+      r->angularVel += angImpulseR;
+    }
+    
     //printf("\tangL: %f, %f, %f\n\tangR: %f, %f, %f\n",
     //  angImpulseL.x, angImpulseL.y, angImpulseL.z,
     //  angImpulseR.x, angImpulseR.y, angImpulseR.z);
-
+    
     //Waiting for all other threads to finish their addition
     //to the relevant body's velocity (could be done local thread if batched)
     barrier(CLK_GLOBAL_MEM_FENCE);

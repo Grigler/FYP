@@ -98,7 +98,7 @@ void Pipeline::InitKernels()
   pairIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   pairsFoundMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   
-  constraintsMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(Constraint)*MAX_BODIES*(MAX_BODIES/8),
+  constraintsMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(Constraint)*MAX_BODIES*(MAX_BODIES/2),
     NULL, &ret);
   lastConstraintIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   printf("> Buffers Created\n");

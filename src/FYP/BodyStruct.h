@@ -7,10 +7,10 @@ struct Mat3
 {
   cl_float3 row[3];
 };
-static Mat3 GetInvInertiaForSphere(float _rad, float _mass)
+static Mat3 GetInvInertiaForSphere(float _rad, float _invMass)
 {
   Mat3 ret;
-  float diagVal = _mass*0.4f * _rad*_rad;
+  float diagVal = _invMass == 0.0f ? 0.0f : (1.0f/_invMass)*0.4f * _rad*_rad;
   ret.row[0].x = diagVal;
   ret.row[1].y = diagVal;
   ret.row[2].z = diagVal;
@@ -24,14 +24,14 @@ static Mat3 GetInvInertiaForSphere(float _rad, float _mass)
 
   return ret;
 }
-static Mat3 GetInvInertiaForBox(float _hx, float _hy, float _hz, float _mass)
+static Mat3 GetInvInertiaForBox(float _hx, float _hy, float _hz, float _invMass)
 {
   Mat3 ret;
   _hx *= 2.0f; _hy *= 2.0f; _hz *= 2.0f;
   float hSqr = _hy * _hy;
   float wSqr = _hx * _hx;
   float dSqr = _hz * _hz;
-  float sMass = _mass*(1.0f / 12.0f);
+  float sMass = _invMass == 0.0f ? 0.0f : (1.0f/_invMass)*(1.0f / 12.0f);
 
   ret.row[0].x = sMass*(hSqr+dSqr);
   ret.row[1].y = sMass*(wSqr+dSqr);
@@ -67,7 +67,7 @@ struct Body
   Mat3 invInertiaTensor;
   Mat3 worldInvInertiaTensor;
 
-  cl_float mass;
+  cl_float invMass;
 
   cl_float3 linearVel;
   cl_float3 angularVel;
@@ -118,7 +118,7 @@ struct Body
 
     orien = emptyQ;
 
-    mass = rand() % 50 + 1;
+    invMass = 1.0f / (rand() % 50 + 1);
 
     linearVel = empty;
     angularVel = empty;
@@ -136,14 +136,14 @@ struct Body
     isSphere = true;
     sphereRadius = 1.0f;
     obbOrien = emptyQ;
-    obbHalfExtents.x = 0.5f;
-    obbHalfExtents.y = 0.5f;
-    obbHalfExtents.z = 0.5f;
+    obbHalfExtents.x = 250.0f;
+    obbHalfExtents.y = 0.1f;
+    obbHalfExtents.z = 250.0f;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
 
-    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, mass);
+    invInertiaTensor = GetInvInertiaForSphere(sphereRadius, invMass);
     worldInvInertiaTensor = invInertiaTensor;
 
     static float offset = 0.0f;
@@ -163,15 +163,15 @@ struct Body
       linearVel.x = 8.0f;
       //linearVel.y = 2.0f;
       angularVel.z = -2.0f;
-      isSphere = false;
+      isSphere = true;
+      invMass = 1.0f / 20.0f;
       invInertiaTensor =
-        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
-      mass = 20.0f;
+        GetInvInertiaForSphere(1.0f, invMass);
     }
     if (i == 5.0f)
     {
       pos.x = 0.0f;
-      pos.y = 2.0f;
+      pos.y = 0.0f;
       pos.z = offset;
       linearVel.x = 0.0f;
       //sphereRadius = 1.5f;
@@ -179,9 +179,9 @@ struct Body
       //angularVel.y = 0.001f;
       //angularVel.z = 0.5f;
       isSphere = false;
+      invMass = 0.0f;
       invInertiaTensor =
-        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
-      mass = 20.0f;
+        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, invMass);
     }
     if (i == 7.5f)
     {
@@ -189,11 +189,11 @@ struct Body
       pos.y = 2.0f;
       pos.z = offset;
       linearVel.x = -8.0f;
-      isSphere = false;
+      isSphere = true;
       angularVel.z = 2.0f;
+      invMass = 1.0f / 20.0f;
       invInertiaTensor =
-        GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, mass);
-      mass = 20.0f;
+        GetInvInertiaForSphere(1.0f, invMass);
     }
 
     

@@ -15,7 +15,7 @@
 namespace FYP
 {
   //Arbitrary value, should be from hardware limits
-#define MAX_BODIES 4096
+#define MAX_BODIES 16
 #define FIXED_TIME 0.008f
 
   class Context;

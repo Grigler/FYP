@@ -1,34 +1,5 @@
 #version 400
 
-struct Body
-{
-  vec3 pos;
-  vec4 orien;
-  
-  mat3 invInertiaTensor;
-  
-  float mass;
-  
-  vec3 linearVel;
-  vec3 angularVel;
-  
-  float linearDrag;
-  float angularDrag;
-  
-  //AABB bv;
-  vec3 bvOrigMin;
-  vec3 bvOrigMax;
-  vec3 bvMin;
-  vec3 bvMax;
-  //int bodyID;
-  
-  //TODO - Complex collider type instead of sphere
-  float sphereRadius;
-  
-  vec3 accumForce;
-  vec3 accumTorque;
-};
-
 //Stride by 1 per sphere
 layout (location = 0) in vec3 bPos;
 layout (location = 1) in vec4 bQuat;
@@ -36,8 +7,10 @@ layout (location = 1) in vec4 bQuat;
 layout (location = 2) in vec3 vPos;
 
 uniform mat4 VP;
+uniform vec3 col;
 
 out vec3 bodyCent;
+out vec3 vCol;
 
 mat4 RotFromQuat(vec4 q)
 {
@@ -94,6 +67,8 @@ void main()
   mat4 M = p * r * s;
   
   mat4 MVP = VP * M;
+  
+  vCol = col;
   
   gl_Position = MVP * vec4(vPos, 1.0f);
 }

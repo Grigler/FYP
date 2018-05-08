@@ -63,8 +63,7 @@ void Pipeline::Update(float _dt)
     NarrowPhase();
     ConstraintSolving();
 
-
-
+    
     dt = 0.0f;
   }
 }
@@ -98,7 +97,7 @@ void Pipeline::InitKernels()
   pairIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   pairsFoundMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   
-  constraintsMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(Constraint)*MAX_BODIES*(MAX_BODIES/8),
+  constraintsMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(Constraint)*MAX_BODIES*(MAX_BODIES-2),
     NULL, &ret);
   lastConstraintIndxMem = clCreateBuffer(*context->GetId(), CL_MEM_READ_WRITE, sizeof(int), NULL, &ret);
   printf("> Buffers Created\n");
@@ -200,7 +199,7 @@ void Pipeline::ConstraintSolving()
   size_t workAmnt = constraintCount;
   if (constraintCount > 0) //Avoiding a null-sized workgroup
   {   
-    printf("ConstraintNum: %i\n", constraintCount);
+    //printf("ConstraintNum: %i\n", constraintCount);
     clEnqueueNDRangeKernel(context->commandQueue[0], constraintSolverKernel, 1, NULL,
       &workAmnt, NULL, NULL, NULL, NULL);
   }

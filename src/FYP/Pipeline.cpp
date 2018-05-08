@@ -63,8 +63,7 @@ void Pipeline::Update(float _dt)
     NarrowPhase();
     ConstraintSolving();
 
-
-
+    
     dt = 0.0f;
   }
 }

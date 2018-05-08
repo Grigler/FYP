@@ -123,8 +123,8 @@ struct Body
     linearVel = empty;
     angularVel = empty;
 
-    linearDrag = 0.5f;
-    angularDrag = 0.2f;
+    linearDrag = 0.015f;
+    angularDrag = 0.015f;
 
     bvLocalMin.x = -1.0f;
     bvLocalMin.y = -1.0f;
@@ -136,9 +136,9 @@ struct Body
     isSphere = true;
     sphereRadius = 1.0f;
     obbOrien = emptyQ;
-    obbHalfExtents.x = 500.0f;
-    obbHalfExtents.y = 0.5f;
-    obbHalfExtents.z = 500.0f;
+    obbHalfExtents.x = 0;
+    obbHalfExtents.y = 0;
+    obbHalfExtents.z = 0;
 
     accumulatedForce = empty;
     accumulatedTorque = empty;
@@ -147,53 +147,58 @@ struct Body
     worldInvInertiaTensor = invInertiaTensor;
 
     static float offset = 0.0f;
-    if (i == 10.0f)
-    {
-      i = 2.5f;
-      offset -= 2.5f;
-    }
+    //if (i == 10.0f)
+    //{
+    //  i = 2.5f;
+    //  offset -= 2.5f;
+    //}
 
 
     //staging collision
-    if (i == 2.5f)
+    if (i >= 5.0f)
     {
-      //pos.x = -4.0f;
-      pos.y = 2.0f;
-      pos.z = offset;
+      //pos.x = 0.0f;
+      pos.x = 0;// +(rand() % 10 - 5) / 10.0f;
+      pos.y = 1.0f * i;
+      //pos.z = offset;
+      pos.z = 0.0f;
       //linearVel.x = 8.0f;
-      linearVel.y = 2.0f;
-      angularVel.z = -2.0f;
+      //linearVel.y = 2.0f;
+      //angularVel.z = 4.0f;
       isSphere = true;
       invMass = 1.0f / 20.0f;
       invInertiaTensor =
         GetInvInertiaForSphere(1.0f, invMass);
     }
-    if (i == 5.0f)
+    if (i == 2.5f)
     {
       pos.x = 0.0f;
-      pos.y = 0.0f;
-      pos.z = offset;
+      pos.y = -7.5f;
+      pos.z = 0.0f;
       linearVel.x = 0.0f;
       //sphereRadius = 1.5f;
       //angularVel.x = 100.0f;
       //angularVel.y = 0.001f;
       //angularVel.z = 0.5f;
-      bvLocalMin.x = -500.0f;
-      bvLocalMin.y = -100.0f;
-      bvLocalMin.z = -500.0f;
-      bvLocalMax.x = 500.0f;
-      bvLocalMax.y = 100.0f;
-      bvLocalMax.z = 500.0f;
+      obbHalfExtents.x = 250.0f;
+      obbHalfExtents.y = 7.5f;
+      obbHalfExtents.z = 250.0f;
+      bvLocalMin.x = -250.0f;
+      bvLocalMin.y = -7.5f;
+      bvLocalMin.z = -250.0f;
+      bvLocalMax.x = 250.0f;
+      bvLocalMax.y = 7.5f;
+      bvLocalMax.z = 250.0f;
       isSphere = false;
       invMass = 0.0f;
       invInertiaTensor =
         GetInvInertiaForBox(obbHalfExtents.x, obbHalfExtents.y, obbHalfExtents.z, invMass);
     }
-    if (i == 7.5f)
+    if (false && i == 7.5f)
     {
       pos.x = 4.0f;
-      pos.y = 2.0f;
-      pos.z = offset;
+      pos.y = 4.0f;
+      pos.z = 0.0f;
       linearVel.x = -8.0f;
       isSphere = true;
       angularVel.z = 2.0f;
@@ -203,12 +208,12 @@ struct Body
     }
 
     
-    bvMin.x = pos.x - 1.0f;
-    bvMin.y = pos.y - 1.0f;
-    bvMin.z = pos.z - 1.0f;
-    bvMax.x = pos.x + 1.0f;
-    bvMax.y = pos.y + 1.0f;
-    bvMax.z = pos.z + 1.0f;
+    bvMin.x = pos.x + bvLocalMin.x;
+    bvMin.y = pos.y + bvLocalMin.y;
+    bvMin.z = pos.z + bvLocalMin.z;
+    bvMax.x = pos.x + bvLocalMax.x;
+    bvMax.y = pos.y + bvLocalMax.y;
+    bvMax.z = pos.z + bvLocalMax.z;
 
     
   }

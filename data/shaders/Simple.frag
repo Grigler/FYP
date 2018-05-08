@@ -1,10 +1,11 @@
 #version 400
 
 in vec3 bodyCent;
+in vec3 vCol;
 
 out vec4 col;
 
 void main()
 {
-   col = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+   col = vec4(vCol, 1.0f);
 }

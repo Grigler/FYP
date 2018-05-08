@@ -19,13 +19,17 @@ public:
 private:
   static float deltaTime;
 
-  static GLuint VAO;
-
-  static GLuint bodyID;
+  static GLuint sphereVAO;
   static int sphereVerts;
+
+  static GLuint floorVAO;
+  static int floorVerts;
+
+  static GLuint rbID;
 
   static GLuint programID;
   static GLuint VPID;
+  static GLuint colID;
 
   static void Idle();
   static void Display();

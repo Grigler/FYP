@@ -123,7 +123,7 @@ struct Body
     linearVel = empty;
     angularVel = empty;
 
-    linearDrag = 0.015f;
+    linearDrag = 0.4f;
     angularDrag = 0.015f;
 
     bvLocalMin.x = -1.0f;
@@ -158,15 +158,15 @@ struct Body
     if (i >= 5.0f)
     {
       //pos.x = 0.0f;
-      pos.x = 0;// +(rand() % 10 - 5) / 10.0f;
+      pos.x = (rand() % 50 - 25) / 10.0f;
       pos.y = 1.0f * i;
       //pos.z = offset;
-      pos.z = 0.0f;
+      pos.z = (rand() % 50 - 25) / 10.0f;
       //linearVel.x = 8.0f;
       //linearVel.y = 2.0f;
-      //angularVel.z = 4.0f;
+      angularVel.z = (rand()%40-20)/10.0f;
       isSphere = true;
-      invMass = 1.0f / 20.0f;
+      invMass = 1.0f / (rand()%90+10);
       invInertiaTensor =
         GetInvInertiaForSphere(1.0f, invMass);
     }

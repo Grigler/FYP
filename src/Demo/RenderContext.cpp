@@ -258,21 +258,21 @@ void RenderContext::Display()
   //Draw Position Data
   glUseProgram(programID);
 
-  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 2, 400), glm::vec3(0, 25, -25), glm::vec3(0, 1, 0));
+  glm::mat4 view = glm::lookAtRH(glm::vec3(0, 100, 20), glm::vec3(0, 2, -25), glm::vec3(0, 1, 0));
   glm::mat4 proj = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.01f, 1000.0f);
   glm::mat4 VP = proj*view;
 
   //Drawing Floor
   glBindVertexArray(floorVAO);
   glUniformMatrix4fv(VPID, 1, GL_FALSE, &VP[0][0]);
-  glm::vec3 fCol = glm::vec3(0.8f, 0.2f, 0.2f);
+  glm::vec3 fCol = glm::vec3(0.043f, 0.517f, 0.835f);
   glUniform3fv(colID, 1, &fCol[0]);
   glDrawArraysInstanced(GL_TRIANGLES, 0, floorVerts, 1);
 
   //Drawing Spheres
   glBindVertexArray(sphereVAO);
   glUniformMatrix4fv(VPID, 1, GL_FALSE, &VP[0][0]);
-  glm::vec3 sCol = glm::vec3(0.2f, 0.2f, 0.8f);
+  glm::vec3 sCol = glm::vec3(0.905f, 0.835f, 0.050f);
   glUniform3fv(colID, 1, &sCol[0]);
   glDrawArraysInstanced(GL_TRIANGLES, 0, sphereVerts, MAX_BODIES);
   

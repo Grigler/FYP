@@ -14,5 +14,7 @@ int main(int argc, char **argv)
 
   rc.StartMainLoop();
 
+  rc.ShutDown();
+
   return 0;
 }

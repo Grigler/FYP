@@ -15,7 +15,7 @@
 namespace FYP
 {
   //Arbitrary value, should be from hardware limits
-#define MAX_BODIES 16
+#define MAX_BODIES 4096
 #define FIXED_TIME 0.008f
 
   class Context;
@@ -27,6 +27,8 @@ namespace FYP
   public:
     //Initialises contexts and system stuff
     static void Init();
+    //Destroys all buffers and contexts
+    static void ShutDown();
 
     static void Update(float _dt);
 

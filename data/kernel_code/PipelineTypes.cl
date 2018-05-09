@@ -347,19 +347,13 @@ typedef struct
   
   //Keeping it in the constraint so it could be changed
   //for more generic constraints later
-  float lowerLimit; //0 for contact
-  float upperLimit;  //< infinite for contact
+  //float lowerLimit; //0 for contact
+  //float upperLimit;  //< infinite for contact
   
   //indx values for bodies in bodies buffer
   int leftIndx;
-  float3 leftDeltaLinVel;
-  float3 leftDeltaAngVel;
-  float3 leftTorqueArm;
   
   int rightIndx;
-  float3 rightDeltaLinVel;
-  float3 rightDeltaAngVel;
-  float3 rightTorqueArm;
   
 } Constraint;
 
@@ -468,16 +462,10 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
       c.worldPos = contactPoint;
       c.depth = dot(penetrationDepth, contactNorm);
       //printf("depth: %f\n", c.depth);
-      c.lowerLimit = 0.0f;
-      c.upperLimit = 9999999.9f;
-      
+
       c.leftIndx = pairs[gid].leftIndx;
-      c.leftDeltaLinVel = (float3)(0.0f);
-      c.leftDeltaAngVel = (float3)(0.0f);
       
       c.rightIndx = pairs[gid].rightIndx;
-      c.rightDeltaLinVel = (float3)(0.0f);
-      c.rightDeltaAngVel = (float3)(0.0f);
       
       c.jacDiagABInv = GetJacM(leftBody, rightBody, contactPoint, contactNorm);
       
@@ -521,16 +509,9 @@ __kernel void NarrowPhase(__global IDPair *pairs, __global Body *bodies, __globa
       
       c.depth = (distance(sphere.pos, contactPoint) - sphere.sphereRadius);
       
-      c.lowerLimit = 0.0f;
-      c.upperLimit = 9999999.9f;
-      
       c.leftIndx = sIndx;
-      c.leftDeltaLinVel = (float3)(0.0f);
-      c.leftDeltaAngVel = (float3)(0.0f);
       
       c.rightIndx = oIndx;
-      c.rightDeltaLinVel = (float3)(0.0f);
-      c.rightDeltaAngVel = (float3)(0.0f);
       
       c.jacDiagABInv = GetJacM(sphere, obb, c.worldPos, c.normal);
       //Write into constraint buffer
@@ -704,7 +685,7 @@ void SequentialImpulseSolver(__global Body *bodies, __global Constraint *constra
 
     //Waiting for all other threads to finish their addition
     //to the relevant body's velocity (could be done local thread if batched)
-    barrier(CLK_GLOBAL_MEM_FENCE);      
+    barrier(CLK_GLOBAL_MEM_FENCE);
   }
 }
 

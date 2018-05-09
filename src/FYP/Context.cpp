@@ -58,6 +58,10 @@ void Context::Create(cl_device_type _devices)
   }
 
 }
+void Context::Release()
+{
+  clReleaseCommandQueue(commandQueue[0]);
+}
 
 cl_device_id *Context::GetFirstDevice(cl_device_type _ofType)
 {

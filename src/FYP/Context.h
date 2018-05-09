@@ -12,6 +12,7 @@ namespace FYP
   public:
     //Creates global context and a command queue for each device that is found
     void Create(cl_device_type _devices);
+    void Release();
 
     static cl_context *GetId() { return context; }
 

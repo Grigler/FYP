@@ -52,6 +52,25 @@ void Pipeline::Init()
   BufferBodies();  
 }
 
+void Pipeline::ShutDown()
+{
+  clReleaseMemObject(glVBO);
+  clReleaseMemObject(idPairsMem);
+  clReleaseMemObject(pairIndxMem);
+  clReleaseMemObject(pairsFoundMem);
+  clReleaseMemObject(constraintsMem);
+  clReleaseMemObject(lastConstraintIndxMem);
+  clReleaseMemObject(bodiesMem);
+
+  clReleaseKernel(broadPhaseKernel);
+  clReleaseKernel(narrowPhaseKernel);
+  clReleaseKernel(constraintSolverKernel);
+  clReleaseKernel(integrationKernel);
+
+  //Releases command queue as well
+  context->Release();
+}
+
 void Pipeline::Update(float _dt)
 {
   dt += _dt;
@@ -63,7 +82,6 @@ void Pipeline::Update(float _dt)
     NarrowPhase();
     ConstraintSolving();
 
-    
     dt = 0.0f;
   }
 }

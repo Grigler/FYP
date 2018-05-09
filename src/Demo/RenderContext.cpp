@@ -22,7 +22,7 @@ GLuint RenderContext::programID;
 GLuint RenderContext::VPID;
 GLuint RenderContext::colID;
 
-bool gPhysToggle = false;
+bool gPhysToggle = true;
 
 void RenderContext::InitWindow(int _argc, char **_argv, 
   const char *_name, int _x, int _y, int _w, int _h)
@@ -52,6 +52,12 @@ void RenderContext::InitWindow(int _argc, char **_argv,
 
   //Init pipeline
   FYP::Pipeline::Init();
+}
+
+void RenderContext::ShutDown()
+{
+  FYP::Pipeline::ShutDown();
+  glutExit();
 }
 
 void RenderContext::InitVBO()
@@ -246,6 +252,10 @@ void RenderContext::Idle()
     deltaTime = 0.0f;
     glutPostRedisplay();
   }
+
+  //DEBUG FOR BENCHMARKING
+  if (glutGet(GLUT_ELAPSED_TIME) >= (1000 * 60 * 5))
+    glutLeaveMainLoop();
 }
 
 void RenderContext::Display()
@@ -289,4 +299,6 @@ void RenderContext::Keyboard(unsigned char _key, int _x, int _y)
     gPhysToggle = !gPhysToggle;
   else if (_key == 'r' || _key == 'R')
     FYP::Pipeline::Init();
+  else if (_key == 27)
+    glutLeaveMainLoop();
 }

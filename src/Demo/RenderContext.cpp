@@ -254,7 +254,7 @@ void RenderContext::Idle()
   }
 
   //DEBUG FOR BENCHMARKING
-  if (glutGet(GLUT_ELAPSED_TIME) >= (1000 * 60 * 5))
+  if (glutGet(GLUT_ELAPSED_TIME) >= (1000 * 60 * 2.5))
     glutLeaveMainLoop();
 }
 

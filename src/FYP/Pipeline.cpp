@@ -9,6 +9,12 @@
 #include <iostream>
 #include <vector>
 
+#define BENCHING
+#ifdef BENCHING
+//For Benchmarking
+#include <chrono>
+#endif BENCHING
+
 using namespace FYP;
 
 cl_mem Pipeline::glVBO;
@@ -31,9 +37,26 @@ cl_mem Pipeline::bodiesMem;
 std::shared_ptr<Context> Pipeline::context = std::make_shared<Context>();
 float Pipeline::dt = 0.0f;
 
+#ifdef BENCHING
+FILE *fBench = NULL;
+#endif
+
 void Pipeline::Init()
 {
   static bool firstInit = true;
+
+#ifdef BENCHING
+  fBench = fopen("benchingOut.csv", "w");
+  if (fBench)
+  {
+    fprintf(fBench, 
+      "IntegrateT,BroadPhaseT,NarrowPhaseT,ConstraintSolvingT,CompFrameT\n");
+  }
+  else
+  {
+    throw std::exception();
+  }
+#endif
 
   if (firstInit)
   {
@@ -69,19 +92,58 @@ void Pipeline::ShutDown()
 
   //Releases command queue as well
   context->Release();
+
+#ifdef BENCHING
+  if (fBench) fclose(fBench);
+#endif
 }
 
 void Pipeline::Update(float _dt)
 {
+#ifdef BENCHING
+  std::chrono::high_resolution_clock cl;
+  auto preFrame = cl.now();
+#endif
   dt += _dt;
   if (dt >= FIXED_TIME)
   {
-    static int debugINT = 0;
+#ifdef BENCHING  
+    auto before = cl.now();
+#endif
     Integrate();
-    BroadPhase();
-    NarrowPhase();
-    ConstraintSolving();
+#ifdef BENCHING
+    auto after = cl.now();
+    std::chrono::duration<float> time = after - before;
+    fprintf(fBench, "%f", time.count());
 
+    before = cl.now();
+#endif
+    BroadPhase();
+#ifdef BENCHING
+    after = cl.now();
+    time = after - before;
+    fprintf(fBench, ",%f", time.count());
+
+    before = cl.now();
+#endif
+    NarrowPhase();
+#ifdef BENCHING
+    after = cl.now();
+    time = after - before;
+    fprintf(fBench, ",%f", time.count());
+
+    before = cl.now();
+#endif
+    ConstraintSolving();
+#ifdef BENCHING
+    after = cl.now();
+    time = after - before;
+    fprintf(fBench, ",%f", time.count());
+
+    auto postFrame = cl.now();
+    time = postFrame - preFrame;
+    fprintf(fBench, ",%f\n", time.count());
+#endif
     dt = 0.0f;
   }
 }
